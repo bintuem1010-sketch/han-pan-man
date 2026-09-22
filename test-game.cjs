@@ -1,0 +1,26 @@
+const {readFileSync}=require('node:fs');
+const vm=require('node:vm');
+const assert=require('node:assert/strict');
+const source=readFileSync(__dirname+'/game.js','utf8');
+function boot(saved){
+ const elements=new Map(),storage=new Map(saved?[['hanpan-life-v5',JSON.stringify(saved)]]:[]);
+ function el(){return{children:[],dataset:{},classList:{toggle(){},add(){},remove(){}},replaceChildren(){this.children=[]},appendChild(x){this.children.push(x)},querySelector(){return el()},textContent:'',innerHTML:''}}
+ const document={getElementById(id){if(!elements.has(id))elements.set(id,el());return elements.get(id)},querySelectorAll(){return[]},createElement:el};
+ const math=Object.create(Math);math.random=()=>.1;
+ const context=vm.createContext({document,localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},navigator:{},window:{},Math:math});
+ vm.runInContext(source.replace(/\}\)\(\);\s*$/,`globalThis.test={state:()=>s,set:x=>s=x,fresh,startNight,deal,evaluate,resolveChoice,advanceHand,endNight,borrow,pay,buy,sell,confirmHome,checkBankruptcy,reset,baseBet,bet,assets,credit,wealth,GOODS,HOMES,save};})();`),context);
+ return{...context.test,storage,click(label){const b=elements.get('modalActions').children.find(b=>b.textContent===label);assert.ok(b,'missing button '+label);b.onclick()},elements};
+}
+let tests=0;function test(name,fn){fn();console.log('PASS '+name);tests++}
+test('39 products, 6 homes; first capital only once',()=>{const t=boot();assert.equal(t.GOODS.length,39);assert.equal(t.HOMES.length,6);t.startNight();t.endNight();assert.equal(t.state().money,1200);assert.equal(t.state().day,1)});
+test('real stakes, one payout only, result survives refresh',()=>{const t=boot();t.startNight();t.deal();assert.equal(t.state().money,1100);t.evaluate();assert.equal(t.state().night.pot,300);t.evaluate();assert.equal(t.state().night.pot,300);const resumed=boot(JSON.parse(t.storage.get('hanpan-life-v5')));assert.equal(resumed.state().night.phase,'choice');resumed.resolveChoice(false);assert.equal(resumed.state().money,1400);resumed.resolveChoice(false);assert.equal(resumed.state().money,1400)});
+test('checkpoint and device selection remain visible',()=>{const t=boot();t.startNight();for(let i=0;i<3;i++){t.deal();t.evaluate();t.resolveChoice(false)}assert.equal(t.state().night.phase,'checkpoint');t.click('장치 고르고 계속');assert.equal(t.state().night.phase,'device');assert.equal(t.state().night.table,2);assert.equal(t.state().night.offers.length,3);assert.equal(t.bet(),170)});
+test('reroll limits and locked cards',()=>{const t=boot();t.startNight();t.deal();t.deal(true);const m=t.state().money;t.deal(true);assert.equal(t.state().money,m);t.state().night.cards=['coin','rose','skull'];t.evaluate();assert.equal(t.state().night.phase,'result');t.advanceHand();assert.equal(t.state().night.phase,'ready')});
+test('compound interest, original maturity, partial repayment',()=>{const t=boot();t.borrow(500);t.click('빌린다');assert.equal(t.state().money,1700);assert.equal(t.state().due,6);t.startNight();t.deal();t.endNight();assert.equal(t.state().debt,540);assert.equal(t.state().day,2);t.borrow(200);t.click('빌린다');assert.equal(t.state().due,6);assert.equal(t.state().debt,740);t.pay('200');assert.equal(t.state().debt,540);t.pay('all');assert.equal(t.state().debt,0);assert.equal(t.state().due,0)});
+test('buy and resale never create money',()=>{const t=boot();t.buy('radio');assert.equal(t.state().money,1020);t.sell('radio');t.click('판매한다');assert.equal(t.state().money,1128);assert.equal(t.state().owned.length,0);t.sell('radio');assert.equal(t.state().money,1128)});
+test('house upgrade/downgrade charges spread and changes costs',()=>{const t=boot();t.state().money=10000;t.confirmHome(2);t.click('이사한다');assert.equal(t.state().money,3500);assert.equal(t.state().home,2);t.confirmHome(0);t.click('이사한다');assert.equal(t.state().money,8700);assert.equal(t.state().home,0)});
+test('business loss and no empty-night farming, settlement idempotent',()=>{const t=boot();t.state().owned=['stall'];t.startNight();t.endNight();assert.equal(t.state().money,1200);t.startNight();t.deal();t.endNight();assert.equal(t.state().money,955);t.endNight();assert.equal(t.state().money,955)});
+test('overdue debt blocks entry; assets allow rescue',()=>{const t=boot();Object.assign(t.state(),{money:0,debt:500,due:1,owned:['watch']});assert.equal(t.checkBankruptcy(),false);t.startNight();assert.equal(t.state().night,null);t.sell('watch');t.click('판매한다');t.pay('all');assert.equal(t.state().money,580);t.startNight();assert.ok(t.state().night)});
+test('bankruptcy and new life preserve historical record',()=>{const t=boot();Object.assign(t.state(),{money:0,debt:900,due:1});assert.equal(t.checkBankruptcy(),true);t.reset('hell');assert.equal(t.state().money,900);assert.equal(t.state().debt,0);assert.equal(t.state().history[0].reason,'파산');assert.equal(t.state().status,'alive')});
+test('unpaid living expenses carried as bills and prohibit shopping',()=>{const t=boot();t.state().money=100;t.startNight();t.deal();t.endNight();assert.equal(t.state().bills,85);const before=t.state().owned.length;t.buy('radio');assert.equal(t.state().owned.length,before)});
+console.log(`${tests} economic and state regression tests passed`);
