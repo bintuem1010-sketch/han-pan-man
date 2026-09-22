@@ -1,6 +1,13 @@
 /* 한 판만 v5 — virtual currency only. Economic actions are synchronous and saved atomically. */
 (()=>{'use strict';
 const $=id=>document.getElementById(id), fmt=n=>`${n<0?'-':''}₩${Math.abs(Math.round(n)).toLocaleString('ko-KR')}`;
+// Old installed pages may receive new JS before their HTML refreshes.
+// Recover before touching state or charging a stake; never delete saves.
+if(!['betAmount','economyBar','homeNote','saveWarning'].every(id=>$(id))){
+ const recovery=new URL('index.html',location.href);recovery.searchParams.set('v','5.2');
+ if(location.href!==recovery.href)location.replace(recovery.href);
+ return;
+}
 const KEY='hanpan-life-v5', OLD='hanpan-life-v3';
 const MODES={hard:{name:'하드',start:1200,interest:.08,base:100,living:65},hell:{name:'지옥',start:900,interest:.14,base:140,living:100}};
 const HOMES=[['🛏️','고시원',0,20],['🚪','원룸',1800,65],['🏡','작은 주택',6500,180],['🏙️','아파트',18000,420],['🌃','펜트하우스',55000,1100],['🏰','저택',150000,2800]];
@@ -52,7 +59,7 @@ function startNight(){if(s.status==='bankrupt')return bankruptcy();if(s.night){s
 }
 function draw(){const weights=Object.entries(SYMBOLS).map(([id,v])=>[id,v.weight+(id==='rose'&&has('roseLuck')?14:0)]);let r=Math.random()*weights.reduce((a,[,w])=>a+w,0);for(const[id,w]of weights){r-=w;if(r<0)return id}return'coin'}
 function rerollCost(){return Math.ceil(bet()*(has('cheapDraw')?.1:.25))}
-function deal(reroll=false){const n=s.night;if(!n||s.status!=='alive'||(!reroll&&n.phase!=='ready')||(reroll&&(n.phase!=='dealt'||n.rerolls>=(has('extraDraw')?2:1)||n.locked.every(Boolean))))return;const cost=reroll?rerollCost():bet();if(s.money<cost)return notice('현금 부족',`필요한 금액은 ${fmt(cost)}입니다. 현재 패로 승부하거나 귀가 후 자산을 정리하세요.`);s.money-=cost;if(!reroll)n.locked=[false,false,false];n.cards=n.cards.map((c,i)=>reroll&&n.locked[i]?c:draw());n.phase='dealt';if(reroll)n.rerolls++;save();renderNight();header();beep(330)}
+function deal(reroll=false){const n=s.night;if(!n)return startNight();if(s.status!=='alive')return bankruptcy();if(!reroll&&n.phase!=='ready'){renderNight();return resumePhase()}if(reroll&&(n.phase!=='dealt'||n.rerolls>=(has('extraDraw')?2:1)||n.locked.every(Boolean)))return;const cost=reroll?rerollCost():bet();if(s.money<cost)return modal('판돈이 부족해요',`<p>필요한 돈 <b>${fmt(cost)}</b> / 현재 현금 <b>${fmt(s.money)}</b></p><p>귀가한 뒤 대출·중고 판매·집 줄이기로 현금을 마련할 수 있습니다.${n.phase==='dealt'?' 현재 패로 승부할 수도 있습니다.':''}</p>`,[['계속 보기',closeModal],['귀가하기',leave,'primary']]);s.money-=cost;if(!reroll)n.locked=[false,false,false];n.cards=n.cards.map((c,i)=>reroll&&n.locked[i]?c:draw());n.phase='dealt';if(reroll)n.rerolls++;save();renderNight();header();beep(330)}
 function toggleLock(i){if(s.night?.phase!=='dealt')return;s.night.locked[i]=!s.night.locked[i];save();renderNight()}
 function evaluate(){const n=s.night;if(!n||n.phase!=='dealt')return;n.phase='result';const counts={};n.cards.forEach(c=>counts[c]=(counts[c]||0)+1);const[id,count]=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];let mult=count===3?SYMBOLS[id].triple:count===2?SYMBOLS[id].pair:0;
  if(count===3&&id==='coin'&&has('coinRush'))mult*=1.5;if(count===3&&id==='rose'&&has('tripleBoost'))mult++;if(count===3&&id==='skull'&&has('skullCharm'))mult+=2;if(count===2&&id==='skull'&&has('pairBoost'))mult+=.3;
