@@ -1,317 +1,64 @@
-(() => {
-  "use strict";
-
-  const WON = new Intl.NumberFormat("ko-KR");
-  const LINES = [
-    [0,1,2,3], [4,5,6,7], [8,9,10,11], [12,13,14,15],
-    [0,4,8,12], [1,5,9,13], [2,6,10,14], [3,7,11,15],
-    [0,5,10,15], [3,6,9,12]
-  ];
-
-  const ITEMS = [
-    { id:"seven", name:"불길한 7", text:"7이 든 조합 배율 ×3", price:160, rarity:"희귀" },
-    { id:"mirror", name:"깨진 거울", text:"같은 숫자 조합 배율 ×2", price:130, rarity:"보통" },
-    { id:"counterfeit", name:"위조 주사위", text:"9를 6으로도 취급", price:180, rarity:"희귀" },
-    { id:"calculator", name:"깨진 계산기", text:"조합 합이 홀수면 배율 ×2", price:120, rarity:"보통" },
-    { id:"debtRing", name:"사채업자의 반지", text:"부족한 목표액 500원마다 배율 +1", price:210, rarity:"저주" },
-    { id:"corner", name:"녹슨 나침반", text:"모서리가 든 조합 배율 ×2", price:115, rarity:"보통" },
-    { id:"blackCoin", name:"검은 동전", text:"재도전 중 얻는 점수 ×1.5", price:145, rarity:"희귀" },
-    { id:"abacus", name:"붉은 주판", text:"연속수 조합 배율 ×2", price:170, rarity:"희귀" },
-    { id:"odd", name:"외눈박이 딜러", text:"홀수 3개 이상이면 배율 ×2", price:155, rarity:"희귀" },
-    { id:"insurance", name:"보험 증서", text:"런 중 한 번 실패를 막고 현금화", price:230, rarity:"특급" },
-    { id:"doubleDown", name:"양면 칩", text:"현금화 금액 ×2, 다음 목표도 ×1.25", price:195, rarity:"저주" },
-    { id:"wildOne", name:"조커의 못", text:"1을 원하는 숫자로 취급", price:240, rarity:"특급" },
-    { id:"echo", name:"메아리 종", text:"대각선 조합 배율 ×2", price:140, rarity:"보통" },
-    { id:"greed", name:"탐욕의 틀니", text:"연승 3회부터 위험 배율 +2", price:175, rarity:"저주" },
-    { id:"pocket", name:"밑장 주머니", text:"판마다 숫자 하나를 다시 뽑기", price:125, rarity:"보통", active:true }
-  ];
-
-  const BOSSES = [
-    { id:"noSeven", name:"칠흑의 딜러", text:"7이 놓이면 즉시 0으로 변한다.", every:3 },
-    { id:"twins", name:"쌍둥이 사기꾼", text:"같은 숫자가 붙으면 기본점수 -30%.", every:3 },
-    { id:"short", name:"성급한 지배인", text:"이번 판은 8턴뿐이다.", every:3 },
-    { id:"tax", name:"세금 징수원", text:"현금화할 때 20%를 가져간다.", every:3 }
-  ];
-
-  const COMBOS = [
-    {name:"네 쌍", example:"7·7·7·7", rule:"네 숫자가 모두 같음", mult:7},
-    {name:"세 쌍", example:"3·3·3·8", rule:"같은 숫자가 3개", mult:4},
-    {name:"두 쌍", example:"2·2·6·6", rule:"같은 숫자 두 쌍", mult:3},
-    {name:"연속수", example:"2·3·4·5", rule:"순서와 무관하게 네 숫자가 연속", mult:4},
-    {name:"블랙 21", example:"2·4·7·8", rule:"네 숫자의 합이 21", mult:5},
-    {name:"둥근 합", example:"2·3·6·9", rule:"합이 10·20·30처럼 10단위", mult:2},
-    {name:"홀수 행진", example:"1·3·5·8", rule:"홀수가 3개 이상", mult:2}
-  ];
-
-  const state = {
-    board:Array(16).fill(null), next:1, turn:0, maxTurns:10, stage:1, room:1,
-    target:500, bank:0, pot:0, roundGain:0, risk:1, streak:0, items:[], boss:null,
-    endless:false, insuranceUsed:false, rerollUsed:false, sound:false, locked:false,
-    seenLines:new Set(), scoredCells:new Set(), tutorialStep:0, tutorialDeck:[]
-  };
-
-  const $ = (id) => document.getElementById(id);
-  const money = (n) => `₩${WON.format(Math.max(0, Math.floor(n)))}`;
-  const has = (id) => state.items.some(i => i.id === id);
-  const record = JSON.parse(localStorage.getItem("hanpan-records") || '{"runs":0,"wins":0,"best":0,"stage":1,"combo":1}');
-  const discovered = new Set(JSON.parse(localStorage.getItem("hanpan-discovered") || "[]"));
-  const tutorialDone = () => localStorage.getItem("hanpan-tutorial") === "done";
-
-  function saveRecord() { localStorage.setItem("hanpan-records", JSON.stringify(record)); }
-  function updateTitleRecords() {
-    $("titleRecords").innerHTML = `<span>도전 ${record.runs}회</span><span>승리 ${record.wins}회</span><span>최고 ${money(record.best)}</span><span>최고층 ${record.stage}</span><span>최고배율 ×${record.combo}</span>`;
-  }
-
-  function beep(freq=440, duration=.07, type="square") {
-    if (!state.sound) return;
-    const ctx = beep.ctx || (beep.ctx = new (window.AudioContext || window.webkitAudioContext)());
-    const osc = ctx.createOscillator(); const gain = ctx.createGain();
-    osc.type=type; osc.frequency.value=freq; gain.gain.setValueAtTime(.045, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(.001, ctx.currentTime+duration);
-    osc.connect(gain).connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime+duration);
-  }
-
-  function randTile() {
-    if(state.tutorialDeck.length) return state.tutorialDeck.shift();
-    const pool = [1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9];
-    return pool[Math.floor(Math.random()*pool.length)];
-  }
-
-  function resetBoard(preservePot=false) {
-    state.board = Array(16).fill(null); state.turn=0; state.roundGain=0; if(!preservePot) state.pot=0; state.seenLines=new Set();
-    state.scoredCells=new Set(); state.maxTurns = state.boss?.id === "short" ? 8 : 10;
-    state.next=randTile(); state.rerollUsed=false; state.locked=false; render();
-  }
-
-  function startGame() {
-    Object.assign(state, {stage:1,room:1,target:500,bank:0,pot:0,risk:1,streak:0,items:[],boss:null,endless:false,insuranceUsed:false});
-    record.runs++; saveRecord(); $("titleScreen").classList.add("hidden"); $("gameScreen").classList.remove("hidden");
-    state.tutorialStep=tutorialDone()?0:1;
-    state.tutorialDeck=state.tutorialStep?[1,2,3,4,7,7,7,7,5,6]:[];
-    closeModal(); resetBoard();
-    if(state.tutorialStep) setTimeout(showTutorialStart,120);
-  }
-
-  function showTutorialStart(){
-    openModal("먼저 숫자를 놓아보자", `<p>왼쪽의 <b>NEXT 숫자</b>를 4×4 판의 원하는 빈칸에 놓습니다.</p><div class="tutorial-example">NEXT 1 → 맨 윗줄 첫 칸</div><p>처음 네 숫자는 <b>1·2·3·4</b>가 나옵니다. 반짝이는 윗줄을 채워 연속수를 직접 만들어보세요.</p>`, [["숫자 놓아보기",()=>closeModal(),"primary"]], "첫 판 안내 1/3");
-  }
-
-  function lineVariants(values) {
-    const variants=[values];
-    if (has("counterfeit")) variants.push(values.map(v=>v===9?6:v));
-    if (has("wildOne") && values.includes(1)) {
-      for(let n=2;n<=9;n++) variants.push(values.map(v=>v===1?n:v));
-    }
-    return variants;
-  }
-
-  function classify(values, indexes) {
-    let best=null;
-    for (const vals of lineVariants(values)) {
-      const sorted=[...vals].sort((a,b)=>a-b); const sum=vals.reduce((a,b)=>a+b,0);
-      const counts=Object.values(vals.reduce((o,n)=>(o[n]=(o[n]||0)+1,o),{}));
-      const allSame=counts.includes(4); const triple=counts.includes(3); const pairs=counts.filter(c=>c===2).length;
-      const straight=sorted.every((v,i)=>i===0||v===sorted[i-1]+1);
-      const candidates=[];
-      if (allSame) candidates.push({name:"네 쌍", base:90, mult:7, tags:["same"]});
-      if (triple) candidates.push({name:"세 쌍", base:55, mult:4, tags:["same"]});
-      if (pairs===2) candidates.push({name:"두 쌍", base:45, mult:3, tags:["same"]});
-      if (straight) candidates.push({name:"연속수", base:60, mult:4, tags:["straight"]});
-      if (sum===21) candidates.push({name:"블랙 21", base:75, mult:5, tags:["sum"]});
-      if (sum%10===0) candidates.push({name:"둥근 합", base:35, mult:2, tags:["sum"]});
-      if (vals.filter(v=>v%2===1).length>=3) candidates.push({name:"홀수 행진", base:30, mult:2, tags:["odd"]});
-      if (vals.includes(7)) candidates.forEach(c=>c.tags.push("seven"));
-      if (indexes.some(i=>[0,3,12,15].includes(i))) candidates.forEach(c=>c.tags.push("corner"));
-      if ((indexes.join() === "0,5,10,15") || (indexes.join() === "3,6,9,12")) candidates.forEach(c=>c.tags.push("diagonal"));
-      const candidate=candidates.sort((a,b)=>(b.base*b.mult)-(a.base*a.mult))[0];
-      if(candidate && (!best || candidate.base*candidate.mult>best.base*best.mult)) best={...candidate,sum};
-    }
-    return best;
-  }
-
-  function itemMultiplier(combo) {
-    let m=1;
-    if(has("seven")&&combo.tags.includes("seven")) m*=3;
-    if(has("mirror")&&combo.tags.includes("same")) m*=2;
-    if(has("calculator")&&combo.sum%2===1) m*=2;
-    if(has("corner")&&combo.tags.includes("corner")) m*=2;
-    if(has("abacus")&&combo.tags.includes("straight")) m*=2;
-    if(has("odd")&&combo.tags.includes("odd")) m*=2;
-    if(has("echo")&&combo.tags.includes("diagonal")) m*=2;
-    if(has("debtRing")) m+=Math.floor(Math.max(0,state.target-state.bank)/500);
-    return m;
-  }
-
-  function place(index) {
-    if(state.locked || state.board[index]!==null) return;
-    let value=state.next;
-    if(state.boss?.id==="noSeven" && value===7) value=0;
-    state.board[index]=value; state.turn++; beep(210+value*35,.06);
-    const hits=[];
-    LINES.forEach((line,lineIndex)=>{
-      if(state.seenLines.has(lineIndex) || !line.every(i=>state.board[i]!==null)) return;
-      const combo=classify(line.map(i=>state.board[i]),line);
-      state.seenLines.add(lineIndex);
-      if(combo) { hits.push({...combo,line}); line.forEach(i=>state.scoredCells.add(i)); }
-    });
-    if(hits.length) {
-      let gained=0, peak=1;
-      hits.forEach(c=>{ let m=c.mult*itemMultiplier(c); peak=Math.max(peak,m); gained+=c.base*m; });
-      if(state.boss?.id==="twins") gained*=.7;
-      if(has("blackCoin")&&state.risk>1) gained*=1.5;
-      gained=Math.floor(gained*state.risk); state.pot+=gained; state.roundGain+=gained;
-      record.combo=Math.max(record.combo,Math.floor(peak*state.risk));
-      showMessage(`+${money(gained)} · ${hits.map(h=>h.name).join(" + ")}`); beep(660,.13,"sawtooth");
-    }
-    if(hits.length){
-      hits.forEach(h=>discovered.add(h.name));
-      localStorage.setItem("hanpan-discovered",JSON.stringify([...discovered]));
-      showScoreBurst(hits,gained,peak);
-    }
-    state.next=randTile(); render(hits);
-    if(state.tutorialStep===1){
-      state.tutorialStep=2;
-      setTimeout(()=>openModal("줄을 완성하면 판정!", `<p>가로·세로·대각선 중 <b>네 칸이 전부 채워진 줄</b>만 조합을 검사합니다.</p><div class="tutorial-example">1 · 2 · 3 · 4 = 연속수 ×4</div><p>금색으로 반짝이는 칸은 지금 숫자를 놓으면 즉시 조합이 생기는 자리입니다.</p>`, [["계속 놓기",()=>closeModal(),"primary"]], "첫 판 안내 2/3"),220);
-    }
-    if(state.turn>=state.maxTurns || state.board.every(v=>v!==null)) endRound();
-  }
-
-  function endRound() {
-    state.locked=true; const success=state.roundGain>0;
-    if(!success) {
-      if(has("insurance")&&!state.insuranceUsed&&state.risk>1){ state.insuranceUsed=true; cashOut(true); return; }
-      const completed=[...state.seenLines].length;
-      openModal("조합을 만들지 못했습니다", `<p><b>${state.turn}개</b>의 숫자를 놓았고, 완성된 네 칸 줄은 <b>${completed}개</b>였습니다.</p><p>완성된 줄에서 같은 수·연속수·합계 21 등의 조합이 나오지 않았습니다. 다음에는 한 줄을 먼저 노려보세요.</p><p class="danger">이어 걸었던 금액과 연승 수익은 사라집니다.</p>`, [
-        ["다시 시작",()=>gameOver(),"primary"]
-      ], "BUST"); return;
-    }
-    const projected=calculateCash();
-    if(state.tutorialStep===2){state.tutorialStep=3;localStorage.setItem("hanpan-tutorial","done");}
-    openModal("여기서 멈출까?", `${state.tutorialStep===3?'<div class="tutorial-example">챙긴다 = 수익 확정<br>다시 건다 = 배율 증가 + 전액 손실 위험</div>':''}<p>이번 판 수익 <b>${money(state.roundGain)}</b> · 연승 누적 <b>${money(state.pot)}</b></p><p>지금 챙기면 <b>${money(projected)}</b>을 보유금에 넣습니다.</p><p class="danger">한 판 더 가면 위험 배율이 오르지만, 실패 시 이번 연승 수익을 잃습니다.</p>`, [
-      ["돈을 챙긴다",()=>cashOut(false),""], ["전부 다시 건다",()=>pushLuck(),"primary"]
-    ], `연승 ${state.streak+1}`);
-  }
-
-  function calculateCash(){
-    let amount=state.pot;
-    if(has("doubleDown")) amount*=2;
-    if(state.boss?.id==="tax") amount*=.8;
-    return Math.floor(amount);
-  }
-
-  function pushLuck(){
-    state.streak++; state.risk=Math.min(64, state.risk*2 + (has("greed")&&state.streak>=3?2:0));
-    closeModal(); resetBoard(true);
-  }
-
-  function cashOut(insured=false){
-    const earned=insured ? Math.floor(state.pot*.5) : calculateCash(); state.bank+=earned;
-    record.best=Math.max(record.best,state.bank); state.risk=1; state.streak=0; state.pot=0; closeModal();
-    if(state.bank>=state.target) winRoom(); else shop();
-  }
-
-  function winRoom(){
-    if(state.stage===8 && !state.endless){
-      record.wins++; saveRecord();
-      openModal("빚을 모두 갚았습니다", `<p>문은 열렸습니다. 이제 정말 나갈 수 있습니다.</p><p>최종 보유금 <b>${money(state.bank)}</b></p>`, [
-        ["나간다",()=>gameOver(true),""], ["한 판만 더",()=>{state.endless=true; advance();},"primary"]
-      ], "정식 승리"); return;
-    }
-    shop(true);
-  }
-
-  function shop(won=false){
-    const choices=[...ITEMS].filter(i=>!has(i.id)).sort(()=>Math.random()-.5).slice(0,3);
-    if(!choices.length){ advance(); return; }
-    const cards=choices.map(i=>`<button class="choice-card" data-item="${i.id}"><b>${i.name}</b><p>${i.text}</p><strong>${i.rarity} · ${money(i.price)}</strong></button>`).join("");
-    openModal(won?"목표 달성!":"수상한 상점", `<p>${won?"다음 도박장으로 가기 전 장치를 고르세요.":"돈을 쓰지 않고 지나가도 됩니다."}</p><div class="choice-grid">${cards}</div>`, [["그냥 간다",()=>advance(),""]], won?"보상 선택":"막간");
-    document.querySelectorAll("[data-item]").forEach(el=>el.addEventListener("click",()=>buyItem(el.dataset.item)));
-  }
-
-  function buyItem(id){
-    const item=ITEMS.find(i=>i.id===id); if(!item) return;
-    const free=state.bank>=state.target;
-    if(!free && state.bank<item.price){ beep(90,.2); elFlash("돈이 부족합니다"); return; }
-    if(state.items.length>=5){ elFlash("장치는 5개까지만 가질 수 있습니다"); return; }
-    if(!free) state.bank-=item.price; state.items.push(item); beep(880,.12); advance();
-  }
-
-  function advance(){
-    closeModal(); state.room++;
-    if(state.room>3){ state.room=1; state.stage++; state.target=Math.floor(state.target*1.78/50)*50; }
-    else state.target=Math.floor(state.target*1.22/50)*50;
-    if(has("doubleDown")) state.target=Math.floor(state.target*1.25/50)*50;
-    state.boss = state.room===3 ? BOSSES[(state.stage-1)%BOSSES.length] : null;
-    record.stage=Math.max(record.stage,state.stage); saveRecord(); resetBoard();
-  }
-
-  function gameOver(won=false){
-    saveRecord(); closeModal(); $("gameScreen").classList.add("hidden"); $("titleScreen").classList.remove("hidden"); updateTitleRecords();
-    if(!won) setTimeout(()=>openModal("런 종료", `<p>도박장 ${state.stage}-${state.room}에서 멈췄습니다.</p><p>최고 보유금 <b>${money(record.best)}</b></p>`, [["한 판만 더",()=>startGame(),"primary"],["메인으로",()=>closeModal(),""]], "GAME OVER"),100);
-  }
-
-  function reroll(){
-    if(!has("pocket")||state.rerollUsed||state.locked) return;
-    const old=state.next; do{state.next=randTile();}while(state.next===old); state.rerollUsed=true; beep(520,.08); render();
-  }
-
-  function render(hits=[]){
-    $("stageLabel").textContent=`${state.stage}-${state.room}${state.endless?" ∞":""}`; $("targetLabel").textContent=money(state.target);
-    $("bankLabel").textContent=money(state.bank); $("potLabel").textContent=money(state.pot); $("riskLabel").textContent=`×${state.risk}`;
-    $("nextTile").textContent=state.next; $("turnLabel").textContent=`${state.turn} / ${state.maxTurns}`;
-    $("bossBanner").classList.toggle("hidden",!state.boss); $("bossBanner").textContent=state.boss?`보스 규칙 · ${state.boss.name}: ${state.boss.text}`:"";
-    const predictions=getPredictions();
-    $("hint").textContent=predictions.size?`금색 칸에 놓으면 ${[...new Set(predictions.values())].join(" 또는 ")} 완성!`:has("pocket")&&!state.rerollUsed?"숫자 타일을 누르면 한 번 다시 뽑을 수 있습니다":"한 줄 네 칸을 먼저 완성해 보세요";
-    $("nextTile").onclick=reroll; $("nextTile").style.cursor=has("pocket")&&!state.rerollUsed?"pointer":"default";
-    $("board").innerHTML=state.board.map((v,i)=>`<button class="cell ${v!==null?"filled":""} ${state.scoredCells.has(i)?"scored":""} ${predictions.has(i)?"hot":""} ${state.tutorialStep&&i<4?"tutorial-target":""}" data-cell="${i}" role="gridcell" aria-label="${v===null?`빈칸 ${i+1}${predictions.has(i)?`, ${predictions.get(i)} 완성 가능`:""}`:`숫자 ${v}`}">${v===null?"":v}</button>`).join("");
-    document.querySelectorAll("[data-cell]").forEach(el=>el.addEventListener("click",()=>place(Number(el.dataset.cell))));
-    const allCombos=[]; LINES.forEach((line,li)=>{ if(state.seenLines.has(li)&&line.every(i=>state.board[i]!==null)){const c=classify(line.map(i=>state.board[i]),line);if(c)allCombos.push(c);} });
-    $("comboLog").innerHTML=allCombos.length?allCombos.map(c=>`<span class="combo-pill">${c.name} ×${c.mult*itemMultiplier(c)}</span>`).join(""):'<span class="muted">아직 조합이 없습니다</span>';
-    $("comboTotal").textContent=`위험 ×${state.risk}`; $("itemCount").textContent=`${state.items.length} / 5`;
-    $("itemRack").innerHTML=state.items.length?state.items.map(i=>`<div class="item-card"><b>${i.name}</b><small>${i.text}</small></div>`).join(""):'<div class="empty-rack">빈 장치 슬롯</div>';
-  }
-
-  function getPredictions(){
-    const result=new Map();
-    state.board.forEach((v,index)=>{
-      if(v!==null)return;
-      for(const line of LINES){
-        if(!line.includes(index))continue;
-        const values=line.map(i=>i===index?state.next:state.board[i]);
-        if(values.some(n=>n===null))continue;
-        const combo=classify(values,line);
-        if(combo){result.set(index,combo.name);break;}
-      }
-    });
-    return result;
-  }
-
-  function showScoreBurst(hits,gained,peak){
-    const el=$("scoreBurst");
-    el.innerHTML=`${hits.map(h=>h.name).join(" + ")}<br><small>${hits.map(h=>`${money(h.base)} ×${h.mult} ×장치${itemMultiplier(h)}`).join(" · ")}</small><br>+${money(gained)}`;
-    el.classList.remove("hidden"); el.style.animation="none"; void el.offsetWidth; el.style.animation="";
-    clearTimeout(showScoreBurst.t); showScoreBurst.t=setTimeout(()=>el.classList.add("hidden"),1500);
-  }
-
-  function showCatalog(){
-    const entries=COMBOS.map(c=>{const open=discovered.has(c.name);return `<div class="catalog-entry ${open?"":"locked"}"><b>${open?c.name:"???"} · ×${c.mult}</b><small>${open?`${c.example}<br>${c.rule}`:"플레이하며 발견하세요"}</small></div>`}).join("");
-    openModal("조합 도감", `<p>기본 조합은 알려주되, 장치끼리 생기는 특수 시너지는 직접 발견할 수 있습니다.</p><div class="catalog-grid">${entries}</div>`, [["게임으로",()=>closeModal(),"primary"]], `${discovered.size} / ${COMBOS.length} 발견`);
-  }
-
-  function showMessage(text){ $("message").textContent=text; clearTimeout(showMessage.t); showMessage.t=setTimeout(()=>$("message").textContent="",2600); }
-  function elFlash(text){ const old=$("modalKicker").textContent; $("modalKicker").textContent=text; setTimeout(()=>$("modalKicker").textContent=old,1200); }
-  function openModal(title,body,actions,kicker=""){
-    $("modalTitle").textContent=title; $("modalBody").innerHTML=body; $("modalKicker").textContent=kicker;
-    $("modalActions").innerHTML=""; actions.forEach(([label,fn,cls])=>{const b=document.createElement("button");b.textContent=label;b.className=cls;b.onclick=fn;$("modalActions").appendChild(b);});
-    $("modal").classList.remove("hidden");
-  }
-  function closeModal(){ $("modal").classList.add("hidden"); }
-  function showHow(){ openModal("30초 게임 방법", `<ol class="rules-list"><li>나오는 숫자를 4×4 판의 빈칸에 놓습니다.</li><li>가로·세로·대각선 네 칸으로 <b>같은 수, 연속수, 합계 21</b> 등의 조합을 만듭니다.</li><li>한 판이 끝나면 돈을 챙기거나 전부 걸고 위험 배율을 올립니다.</li><li>목표 금액을 넘겨 도박장을 통과하고, 장치들의 효과를 엮어 규칙을 망가뜨리세요.</li><li>8번째 도박장을 깨면 나갈 수도, 무한히 계속할 수도 있습니다.</li></ol>`, [["알겠어",()=>closeModal(),"primary"]], "HOW TO PLAY"); }
-
-  $("startBtn").addEventListener("click",startGame); $("howBtn").addEventListener("click",showHow);
-  $("catalogBtn").addEventListener("click",showCatalog);
-  $("menuBtn").addEventListener("click",()=>openModal("정말 포기할까요?","<p>현재 런의 진행 상황은 사라집니다.</p>",[["계속한다",closeModal,""],["포기한다",()=>gameOver(),"primary"]],"주의"));
-  $("soundBtn").addEventListener("click",()=>{state.sound=!state.sound;$("soundBtn").classList.toggle("on",state.sound);$("soundBtn").setAttribute("aria-label",state.sound?"효과음 끄기":"효과음 켜기");beep(660,.1);});
-  updateTitleRecords();
-  if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+(()=>{"use strict";
+const $=id=>document.getElementById(id),fmt=n=>`₩${Math.floor(Math.max(0,n)).toLocaleString("ko-KR")}`;
+const SYMBOLS={coin:{icon:"🪙",name:"금화",pair:2,triple:6,weight:48},rose:{icon:"🌹",name:"장미",pair:3,triple:10,weight:34},skull:{icon:"💀",name:"해골",pair:5,triple:20,weight:18}};
+const DEVICES=[
+ {id:"redPaint",name:"붉은 염료",text:"금화를 장미로도 취급"},{id:"boneMirror",name:"뼈 거울",text:"해골 한 쌍의 배당 ×2"},{id:"extraDraw",name:"사기꾼의 손",text:"다시 뽑기 +1회"},{id:"cheapDraw",name:"구멍 난 주머니",text:"다시 뽑기 비용 ₩10"},{id:"insurance",name:"낡은 보험증",text:"한 번의 꽝을 막아줌"},{id:"oddWin",name:"뒤집힌 표지판",text:"전부 다르면 판돈을 돌려받음"},{id:"coinRush",name:"금빛 틀니",text:"금화 세 쌍 배당 ×2"},{id:"roseLuck",name:"장미 향수",text:"장미 등장 확률 증가"},{id:"skullCharm",name:"죽은 자의 동전",text:"해골 세 쌍이면 추가 ₩2,000"},{id:"greed",name:"탐욕의 반지",text:"연승 3부터 위험 배율 +2"},{id:"freeBet",name:"딜러의 빚",text:"매 테이블 첫 판 판돈 무료"},{id:"wild",name:"금 간 조커",text:"매 판 한 장을 와일드로 취급"}
+];
+const GOODS=[
+ {id:"watch",tab:"luxury",icon:"⌚",name:"금빛 손목시계",price:1800,text:"시간은 그대로지만 손목은 빛납니다.",effect:"효과 없음. 아주 잘 보입니다."},
+ {id:"suit",tab:"luxury",icon:"🤵",name:"맞춤 정장",price:3200,text:"딜러들이 당신을 먼저 알아봅니다.",effect:"첫 밤 시작 칩 +₩100"},
+ {id:"car",tab:"luxury",icon:"🏎️",name:"붉은 스포츠카",price:12000,text:"걷지 않아도 되는 거리를 달립니다.",effect:"수집품"},
+ {id:"toilet",tab:"luxury",icon:"🚽",name:"황금 변기",price:30000,text:"쓸데없이 비싸고 엄청 반짝입니다.",effect:"효과 없음. 정말로."},
+ {id:"shelter",tab:"donation",icon:"🐈",name:"동물보호소 후원",price:900,text:"오늘 밤 몇 마리가 따뜻하게 잡니다.",effect:"선행 +1"},
+ {id:"meal",tab:"donation",icon:"🍲",name:"무료 식사 100그릇",price:1600,text:"누군가 가격을 걱정하지 않고 먹습니다.",effect:"선행 +2"},
+ {id:"scholar",tab:"donation",icon:"🎓",name:"익명 장학금",price:5000,text:"수혜자는 끝내 당신 이름을 모릅니다.",effect:"선행 +5 · 특별 기록"},
+ {id:"town",tab:"donation",icon:"🏘️",name:"낡은 동네 복구",price:18000,text:"꺼져 있던 창문들에 불이 들어옵니다.",effect:"선행 +12"},
+ {id:"stall",tab:"business",icon:"🥪",name:"밤거리 노점",price:1200,text:"작지만 처음으로 당신 이름이 걸린 사업.",effect:"귀가할 때마다 ₩80"},
+ {id:"shop",tab:"business",icon:"🏪",name:"작은 상점",price:4500,text:"단골과 외상 장부가 생겼습니다.",effect:"귀가할 때마다 ₩250",requires:"stall"},
+ {id:"trade",tab:"business",icon:"🚢",name:"무역회사",price:15000,text:"숫자가 바다를 건너 불어납니다.",effect:"귀가할 때마다 ₩700",requires:"shop"},
+ {id:"corp",tab:"business",icon:"🏢",name:"거대 기업",price:50000,text:"이제 누군가가 당신을 위해 밤을 샙니다.",effect:"귀가할 때마다 ₩2,000",requires:"trade"},
+ {id:"snack",tab:"small",icon:"🍢",name:"길거리 어묵",price:60,text:"국물까지 천천히 마셨습니다.",effect:"기억 +1",repeat:true},
+ {id:"catfood",tab:"small",icon:"🐾",name:"골목 고양이 밥",price:90,text:"내일도 같은 자리에서 기다릴 겁니다.",effect:"기억 +1",repeat:true},
+ {id:"ticket",tab:"small",icon:"🎫",name:"작은 공연의 표",price:180,text:"처음 듣는 노래가 오래 남았습니다.",effect:"기억 +1",repeat:true},
+ {id:"dinner",tab:"small",icon:"🍽️",name:"친구의 저녁값",price:320,text:"오늘은 계산서를 먼저 집었습니다.",effect:"기억 +2",repeat:true}
+];
+const load=()=>{try{return JSON.parse(localStorage.getItem("hanpan-life-v3"))||{}}catch{return{}}};
+const life=Object.assign({money:0,owned:[],counts:{},good:0,memories:0,nights:0,lastNight:0,bestStreak:0,sound:false,tutorial:false},load());
+const night={chips:500,pot:0,risk:1,streak:0,table:1,hands:0,cards:[null,null,null],locked:[false,false,false],dealt:false,rerolls:0,maxRerolls:1,devices:[],insured:false,firstBet:true,earned:0};
+let currentTab="luxury";
+function save(){localStorage.setItem("hanpan-life-v3",JSON.stringify(life))}function hasDevice(id){return night.devices.some(d=>d.id===id)}function owns(id){return life.owned.includes(id)}
+function beep(f=440,d=.07){if(!life.sound)return;const c=beep.c||(beep.c=new(window.AudioContext||window.webkitAudioContext)()),o=c.createOscillator(),g=c.createGain();o.type="square";o.frequency.value=f;g.gain.setValueAtTime(.04,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+d);o.connect(g).connect(c.destination);o.start();o.stop(c.currentTime+d)}
+function show(screen){["homeScreen","nightScreen","dayScreen"].forEach(id=>$(id).classList.toggle("hidden",id!==screen));renderHeader()}
+function renderHeader(){$("lifeMoney").textContent=fmt(life.money);$("lastNight").textContent=fmt(life.lastNight);$("bestStreak").textContent=life.bestStreak;$("ownedCount").textContent=life.owned.length+Object.values(life.counts).reduce((a,b)=>a+b,0);$("lifePath").textContent=pathName()}
+function pathName(){const lux=life.owned.filter(id=>GOODS.find(g=>g.id===id)?.tab==="luxury").length,biz=life.owned.filter(id=>GOODS.find(g=>g.id===id)?.tab==="business").length;if(life.good>=10)return"이름 없는 후원자";if(biz>=3)return"밤의 기업가";if(lux>=3)return"화려한 수집가";if(life.memories>=8)return"작은 행복 수집가";return life.nights?"길을 고르는 중":"아직 없음"}
+function startNight(){Object.assign(night,{chips:500+(owns("suit")?100:0),pot:0,risk:1,streak:0,table:1,hands:0,cards:[null,null,null],locked:[false,false,false],dealt:false,rerolls:0,maxRerolls:1,devices:[],insured:false,firstBet:true,earned:0});show("nightScreen");renderNight();if(!life.tutorial)setTimeout(()=>modal("세 장이면 충분해","<p>패는 <b>금화·장미·해골</b> 세 종류뿐입니다.</p><div class='tutorial-box'>같은 그림 2개 = 당첨<br>같은 그림 3개 = 잭팟<br>전부 다름 = 꽝</div><p>첫 패를 보고 원하는 카드를 눌러 고정한 뒤, 나머지만 한 번 다시 뽑을 수 있습니다.</p>",[["직접 해보기",closeModal,"primary"]],"30초 안내"),120)}
+function randomSymbol(){let weights=Object.entries(SYMBOLS).map(([id,s])=>[id,s.weight+(id==="rose"&&hasDevice("roseLuck")?18:0)]),r=Math.random()*weights.reduce((a,[,w])=>a+w,0);for(const[id,w]of weights){r-=w;if(r<=0)return id}return"coin"}
+function deal(isReroll=false){const cost=isReroll?(hasDevice("cheapDraw")?10:30):100;if(night.chips<cost)return modal("칩이 부족합니다",`<p>${fmt(cost)}가 필요합니다. 지금까지 번 돈을 가지고 집으로 돌아갈 수 있습니다.</p>`,[["집으로",endNight,"primary"],["돌아가기",closeModal,""]],"잔액 부족");if(!isReroll&&hasDevice("freeBet")&&night.firstBet)night.firstBet=false;else night.chips-=cost;if(!isReroll){night.locked=[false,false,false];night.rerolls=0;night.maxRerolls=hasDevice("extraDraw")?2:1}night.cards=night.cards.map((c,i)=>(isReroll&&night.locked[i])?c:randomSymbol());night.dealt=true;if(isReroll)night.rerolls++;animateSlots();renderNight();beep(320,.1)}
+function animateSlots(){document.querySelectorAll(".slot").forEach((el,i)=>{if(!night.locked[i]){el.classList.add("spinning");setTimeout(()=>el.classList.remove("spinning"),280+i*80)}})}
+function toggleLock(i){if(!night.dealt)return;night.locked[i]=!night.locked[i];beep(night.locked[i]?650:300,.05);renderNight()}
+function evaluate(){if(!night.dealt)return;let counts={};night.cards.forEach(c=>counts[c]=(counts[c]||0)+1);let entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]),[symbol,count]=entries[0];if(hasDevice("redPaint")&&counts.coin&&counts.rose){symbol="rose";count=counts.coin+counts.rose}if(hasDevice("wild")&&count<3)count++;
+ let win=0,label="꽝";if(count>=3){win=100*SYMBOLS[symbol].triple*night.risk;label=`${SYMBOLS[symbol].name} 세 쌍!`;if(symbol==="coin"&&hasDevice("coinRush"))win*=2;if(symbol==="skull"&&hasDevice("skullCharm"))win+=2000}else if(count===2){win=100*SYMBOLS[symbol].pair*night.risk;label=`${SYMBOLS[symbol].name} 한 쌍`;if(symbol==="skull"&&hasDevice("boneMirror"))win*=2}else if(hasDevice("oddWin")){win=100;label="전부 다름 · 판돈 반환"}
+ if(win<=0){if(hasDevice("insurance")&&!night.insured){night.insured=true;win=100;label="보험이 꽝을 막았습니다"}else{return bust()}}
+ night.pot+=win;night.streak++;night.earned=Math.max(night.earned,night.pot);life.bestStreak=Math.max(life.bestStreak,night.streak);burst(`${label}<small>+${fmt(win)} · 누적 ${fmt(night.pot)}</small>`);beep(780,.15);setTimeout(()=>riskChoice(label),700)}
+function riskChoice(label){modal("여기서 멈출까?",`<p><b>${label}</b>으로 연승 수익이 <b>${fmt(night.pot)}</b>이 되었습니다.</p><p>챙기면 가진 칩에 넣습니다. 다시 걸면 다음 배당이 커지지만, 꽝이 나오면 연승 수익을 전부 잃습니다.</p>`,[["돈을 챙긴다",cashPot,""] ,["전부 다시 건다",pushLuck,"primary"]],`연승 ${night.streak}`)}
+function cashPot(){night.chips+=night.pot;night.pot=0;night.risk=1;night.streak=0;advanceHand();closeModal()}
+function pushLuck(){night.risk=Math.min(64,night.risk*2+(hasDevice("greed")&&night.streak>=3?2:0));advanceHand();closeModal()}
+function bust(){const lost=night.pot;night.pot=0;night.risk=1;night.streak=0;burst(`꽝<small>연승 수익 ${fmt(lost)}을 잃었습니다</small>`);beep(100,.25);setTimeout(()=>{if(night.chips<100)return endNight();advanceHand()},700)}
+function advanceHand(){night.hands++;night.cards=[null,null,null];night.locked=[false,false,false];night.dealt=false;night.rerolls=0;if(night.hands>0&&night.hands%3===0){night.table++;night.firstBet=true;if(night.table<=6&&night.devices.length<5)return chooseDevice()}if(night.table>6)return finishCasino();renderNight()}
+function chooseDevice(){const choices=DEVICES.filter(d=>!hasDevice(d.id)).sort(()=>Math.random()-.5).slice(0,3);modal("수상한 장치 하나",`<p>다음 테이블부터 규칙 하나를 속일 수 있습니다.</p><div class="choice-grid">${choices.map(d=>`<button class="choice" data-device="${d.id}"><b>${d.name}</b><small>${d.text}</small></button>`).join("")}</div>`,[],`테이블 ${night.table}`);document.querySelectorAll("[data-device]").forEach(b=>b.onclick=()=>{night.devices.push(DEVICES.find(d=>d.id===b.dataset.device));closeModal();renderNight()})}
+function finishCasino(){modal("새벽이 밝았습니다",`<p>여섯 테이블을 모두 지나왔습니다. 가진 칩 <b>${fmt(night.chips+night.pot)}</b>을 들고 나갈 수 있습니다.</p>`,[["집으로 돌아간다",endNight,""] ,["한 판만 더",()=>{night.table=1;night.hands=0;night.risk*=2;closeModal();renderNight()},"primary"]],"정식 승리")}
+function endNight(){const total=night.chips+night.pot,profit=Math.max(0,total-500),dividend=companyIncome();life.money+=profit+dividend;life.lastNight=profit;life.nights++;life.tutorial=true;save();closeModal();show("homeScreen");modal("집으로 돌아왔습니다",`<p>오늘 밤 가져온 돈 <b>${fmt(profit)}</b></p>${dividend?`<p>회사에서 들어온 수익 <b>${fmt(dividend)}</b></p>`:""}<p>이 돈을 모아두거나, 낮의 세계에서 원하는 삶에 쓸 수 있습니다.</p>`,[["낮의 세계로",()=>{closeModal();openDay()},"primary"],["오늘은 쉰다",closeModal,""]],`${life.nights}번째 아침`)}
+function companyIncome(){return(owns("stall")?80:0)+(owns("shop")?250:0)+(owns("trade")?700:0)+(owns("corp")?2000:0)}
+function renderNight(){$("tableLabel").textContent=`${night.table} / 6`;$("chipLabel").textContent=fmt(night.chips);$("potLabel").textContent=fmt(night.pot);$("riskLabel").textContent=`×${night.risk}`;$("deviceCount").textContent=`${night.devices.length} / 5`;$("deviceRack").innerHTML=night.devices.length?night.devices.map(d=>`<div class="device"><b>${d.name}</b><small>${d.text}</small></div>`).join(""):'<span class="empty">3판을 버티면 규칙 장치를 고릅니다</span>';
+ document.querySelectorAll(".slot").forEach((el,i)=>{const c=night.cards[i];el.classList.toggle("locked",night.locked[i]);el.querySelector("i").textContent=c?SYMBOLS[c].icon:"?";el.querySelector("b").textContent=c?SYMBOLS[c].name:"?";el.querySelector(".lock-label").textContent=night.locked[i]?"고정됨":"누르면 고정"});$("dealBtn").classList.toggle("hidden",night.dealt);$("rerollBtn").classList.toggle("hidden",!night.dealt||night.rerolls>=night.maxRerolls);$("settleBtn").classList.toggle("hidden",!night.dealt);$("rerollCost").textContent=fmt(hasDevice("cheapDraw")?10:30);$("dealerLine").textContent=night.dealt?"“남길 패는 눌러 고정해. 나머지는 다시 뽑을 수 있어.”":"“세 장뿐이야. 같은 그림 두 개면 돈을 주지.”"}
+function burst(html){const el=$("resultBurst");el.innerHTML=html;el.classList.remove("hidden");el.style.animation="none";void el.offsetWidth;el.style.animation="";clearTimeout(burst.t);burst.t=setTimeout(()=>el.classList.add("hidden"),1600)}
+function openDay(tab="luxury"){currentTab=tab;show("dayScreen");renderDay()}
+function renderDay(){document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===currentTab));const intro={luxury:"비싼 물건에는 이유가 있을 수도, 없을 수도 있습니다. 대부분은 없습니다.",donation:"얼마를 남겼는지가 아니라 어디에 흘려보냈는지가 기록됩니다.",business:"사업은 귀가할 때마다 수익을 줍니다. 작은 노점부터 시작하세요.",small:"거창하지 않은 하루도 기억에 남습니다. 작은 소비는 여러 번 할 수 있습니다.",room:"당신이 산 것과 남긴 것들. 이것이 이번 플레이의 진짜 점수입니다."};$("dayIntro").textContent=intro[currentTab];if(currentTab==="room")return renderRoom();const list=GOODS.filter(g=>g.tab===currentTab);$("shopGrid").className="shop-grid";$("shopGrid").innerHTML=list.map(g=>{const owned=owns(g.id),blocked=g.requires&&!owns(g.requires),count=life.counts[g.id]||0;return`<article class="shop-card"><span class="icon">${g.icon}</span><h3>${g.name}${count?` ×${count}`:""}</h3><p>${g.text}<br><b>${g.effect}</b></p><span class="owned-label">${owned&&!g.repeat?"구입 완료":fmt(g.price)}</span><button data-buy="${g.id}" ${owned&&!g.repeat||blocked||life.money<g.price?"disabled":""}>${blocked?"이전 회사를 먼저 설립":owned&&!g.repeat?"이미 보유":life.money<g.price?"돈이 부족함":"구입하기"}</button></article>`}).join("");document.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>buyGood(b.dataset.buy))}
+function buyGood(id){const g=GOODS.find(x=>x.id===id);if(!g||life.money<g.price||(!g.repeat&&owns(id)))return;life.money-=g.price;if(g.repeat)life.counts[id]=(life.counts[id]||0)+1;else life.owned.push(id);if(g.tab==="donation")life.good+=id==="town"?12:id==="scholar"?5:id==="meal"?2:1;if(g.tab==="small")life.memories+=id==="dinner"?2:1;save();renderHeader();renderDay();beep(700,.1);modal(g.name,`<div class="tutorial-box">${g.icon}</div><p>${g.text}</p><p><b>${purchaseMemory(g)}</b></p>`,[["방으로 가져간다",closeModal,"primary"]],"새로운 삶의 기록")}
+function purchaseMemory(g){const m={watch:"이제 시간을 확인할 때마다 그날 밤을 기억합니다.",suit:"거울 속의 사람이 조금 달라 보였습니다.",car:"목적지 없이 한 바퀴를 더 돌았습니다.",toilet:"돈으로 살 수 있는 가장 우스운 것을 샀습니다.",shelter:"오늘 밤 몇 마리가 따뜻하게 잡니다.",meal:"누군가 가격을 걱정하지 않고 먹었습니다.",scholar:"이름을 남기지 않는 쪽을 골랐습니다.",town:"꺼져 있던 창문들에 불이 들어왔습니다.",stall:"작지만 처음으로 당신 이름이 걸렸습니다.",shop:"첫 단골이 생겼습니다.",trade:"당신의 돈이 바다를 건넜습니다.",corp:"건물 꼭대기에 당신 이름이 걸렸습니다.",snack:"국물까지 천천히 마셨습니다.",catfood:"내일도 같은 자리에서 기다릴 겁니다.",ticket:"처음 듣는 노래가 오래 남았습니다.",dinner:"오늘은 계산서를 먼저 집었습니다."};return m[g.id]}
+function renderRoom(){const ownedGoods=life.owned.map(id=>GOODS.find(g=>g.id===id)).filter(Boolean),repeats=Object.entries(life.counts).flatMap(([id,c])=>Array.from({length:Math.min(c,6)},()=>GOODS.find(g=>g.id===id)));const all=[...ownedGoods,...repeats];$("shopGrid").className="room-grid";$("shopGrid").innerHTML=all.length?all.map(g=>`<div class="room-object"><i>${g.icon}</i><b>${g.name}</b></div>`).join(""):'<div class="day-intro">아직 방이 비어 있습니다. 돈을 버는 것보다 무엇을 들여놓을지가 중요할지도 모릅니다.</div>'}
+function rules(){modal("규칙은 세 줄",`<div class="tutorial-box">같은 그림 2개 = 당첨<br>같은 그림 3개 = 잭팟<br>전부 다름 = 꽝</div><p>① 세 장을 뽑습니다.<br>② 남길 패를 눌러 고정하고 나머지를 다시 뽑습니다.<br>③ 성공하면 돈을 챙기거나 전부 다시 걸어 배율을 높입니다.</p><p>세 판마다 규칙을 바꾸는 장치를 얻습니다. 집으로 가져온 돈은 낮의 세계에서 사치품·기부·회사·작은 행복에 쓸 수 있습니다.</p>`,[["한 판만",()=>{closeModal();startNight()},"primary"],["닫기",closeModal,""]],"30초 게임 방법")}
+function modal(title,body,actions,kicker=""){$("modalTitle").textContent=title;$("modalBody").innerHTML=body;$("modalKicker").textContent=kicker;$("modalActions").innerHTML="";actions.forEach(([label,fn,cls])=>{const b=document.createElement("button");b.textContent=label;b.className=cls;b.onclick=fn;$("modalActions").appendChild(b)});$("modal").classList.remove("hidden")}function closeModal(){$("modal").classList.add("hidden")}
+$("nightBtn").onclick=startNight;$("dayBtn").onclick=()=>openDay();$("homeBtn").onclick=()=>{closeModal();show("homeScreen")};$("backHomeBtn").onclick=()=>show("homeScreen");$("rulesBtn").onclick=rules;$("dealBtn").onclick=()=>deal(false);$("rerollBtn").onclick=()=>deal(true);$("settleBtn").onclick=evaluate;$("leaveNightBtn").onclick=()=>modal("정말 돌아갈까요?",`<p>연승 수익을 포함해 현재 칩을 정산합니다. 기본 시작금 ₩500보다 늘어난 금액만 집으로 가져갑니다.</p>`,[["밤에 남는다",closeModal,""] ,["집으로 간다",endNight,"primary"]],"중도 귀가");document.querySelectorAll("[data-slot]").forEach(b=>b.onclick=()=>toggleLock(Number(b.dataset.slot)));document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{currentTab=b.dataset.tab;renderDay()});$("soundBtn").onclick=()=>{life.sound=!life.sound;save();$("soundBtn").classList.toggle("on",life.sound);beep(660,.1)};
+renderHeader();show("homeScreen");if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 })();
