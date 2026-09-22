@@ -89,6 +89,10 @@ button { font: inherit; }
 .cell:hover:not(.filled) { background: #286b56; transform: translateY(-2px); }
 .cell.filled { cursor: default; background: #d7c79d; color: #1b1810; border-color: #78663d; text-shadow: none; animation: stamp .18s ease-out; }
 .cell.scored { color: #8b1f16; background: #f3d77f; box-shadow: inset 0 0 0 3px #bd8630; }
+.cell.hot:not(.filled) { border-color: #ffd45c; box-shadow: inset 0 0 0 2px #ffd45c, 0 0 14px #f2b73588; }
+.cell.hot:not(.filled)::after { content: "!"; color: #ffd45c; font-size: .8rem; align-self: start; justify-self: end; margin: 4px; }
+.cell.tutorial-target:not(.filled) { animation: guidePulse 1s infinite; }
+@keyframes guidePulse { 50% { background: #417b4f; box-shadow: 0 0 18px #ffd45c; } }
 @keyframes stamp { from { scale: 1.35; filter: brightness(2); } }
 .hint { margin: 11px 0 0; min-height: 1.2em; text-align: center; color: #a89a6c; font-size: .75rem; }
 
@@ -105,6 +109,9 @@ button { font: inherit; }
 .empty-rack { grid-column: 1 / -1; padding: 20px; border: 1px dashed #50452f; text-align: center; color: #625944; font-size: .75rem; }
 .game-footer { min-height: 48px; display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
 .message { color: #efc65c; font-size: .72rem; text-align: right; }
+.footer-buttons { display: flex; gap: 14px; }
+.score-burst { position: fixed; z-index: 25; left: 50%; top: 43%; translate: -50% -50%; min-width: min(390px, 88vw); padding: 18px; border: 5px double #6f4d16; background: #f0d684; color: #24170c; text-align: center; font-size: clamp(1.1rem, 5vw, 1.8rem); font-weight: 900; box-shadow: 0 14px 60px #000; pointer-events: none; animation: scorePop 1.5s both; }
+@keyframes scorePop { 0% { opacity: 0; scale: .4; rotate: -5deg; } 15%,75% { opacity: 1; scale: 1; rotate: 0deg; } 100% { opacity: 0; scale: 1.15; } }
 
 .modal { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 18px; background: #080603dd; backdrop-filter: blur(3px); }
 .modal-card { width: min(590px, 100%); max-height: 92vh; overflow-y: auto; padding: clamp(21px, 5vw, 35px); color: var(--ink); background: var(--paper); border: 7px double #6c4f18; box-shadow: 0 18px 80px #000; }
@@ -121,6 +128,12 @@ button { font: inherit; }
 .choice-card strong { color: #8a281d; font-size: .76rem; }
 .rules-list { padding-left: 20px; line-height: 1.65; font-size: .82rem; }
 .danger { color: #941d16; font-weight: 900; }
+.catalog-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; }
+.catalog-entry { padding: 10px; border: 2px solid #6c5b32; background: #d8c692; }
+.catalog-entry.locked { filter: grayscale(1); opacity: .58; }
+.catalog-entry b { display: block; margin-bottom: 5px; }
+.catalog-entry small { display: block; line-height: 1.4; }
+.tutorial-example { margin: 14px 0; padding: 12px; background: #1b382d; color: #fff0aa; text-align: center; font-size: 1.05rem; }
 
 @media (max-width: 700px) {
   .marquee { min-height: 105px; padding: 14px 55px; }
@@ -132,6 +145,7 @@ button { font: inherit; }
   .board { gap: 4px; padding: 6px; border-width: 4px; }
   .item-rack { grid-template-columns: repeat(2, 1fr); }
   .choice-grid { grid-template-columns: 1fr; }
+  .catalog-grid { grid-template-columns: 1fr; }
   .choice-card p { min-height: 0; }
   .icon-button { right: 14px; width: 36px; height: 36px; }
 }
