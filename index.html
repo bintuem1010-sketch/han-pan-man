@@ -1,95 +1,14 @@
-<!doctype html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#17140f" />
-  <meta name="description" content="숫자 조합과 확률을 비트는 복고풍 보드 로그라이크, 한 판만" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="style.css" />
-  <title>한 판만 — 숫자 보드 로그라이크</title>
-</head>
-<body>
-  <div class="noise" aria-hidden="true"></div>
-  <main class="cabinet">
-    <header class="marquee">
-      <div class="bulbs" aria-hidden="true"></div>
-      <div>
-        <p class="eyebrow">NUMBER RISK ROGUELIKE</p>
-        <h1>한 판만</h1>
-        <p class="subtitle">멈추면 번다. 계속하면 터진다.</p>
-      </div>
-      <button id="soundBtn" class="icon-button" type="button" aria-label="효과음 켜기">♪</button>
-    </header>
+<!doctype html><html lang="ko"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#15110d">
+<meta name="description" content="밤에는 돈을 걸고, 낮에는 인생을 사는 복고풍 짝 맞추기 로그라이크"><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="style.css"><title>한 판만 — 밤에는 걸고, 낮에는 산다</title></head>
+<body><div class="grain" aria-hidden="true"></div><main id="app">
+<header class="topbar"><button id="homeBtn" class="brand" type="button"><b>한 판만</b><span>ONE MORE HAND</span></button><div class="wallet"><span>내 재산</span><strong id="lifeMoney">₩0</strong></div><button id="soundBtn" class="round-btn" type="button" aria-label="효과음 켜기">♪</button></header>
 
-    <section id="titleScreen" class="screen title-screen">
-      <div class="coin-mark">₩</div>
-      <p class="story">빚을 갚을 마지막 밤.<br />숫자를 엮고, 규칙을 속이고, 살아서 나가라.</p>
-      <button id="startBtn" class="big-button pulse" type="button">한 판만</button>
-      <div class="records" id="titleRecords"></div>
-      <button id="howBtn" class="text-button" type="button">게임 방법</button>
-    </section>
+<section id="homeScreen" class="screen home-screen"><div class="hero"><p class="kicker">NIGHT & DAY ROGUELIKE</p><h1>밤에는 걸고,<br><em>낮에는 산다.</em></h1><p>세 장 중 짝을 맞춰 돈을 벌어라.<br>그 돈으로 어떤 인생을 살지는 당신의 몫이다.</p><div class="hero-actions"><button id="nightBtn" class="primary-btn" type="button">밤으로 간다</button><button id="dayBtn" class="secondary-btn" type="button">낮의 세계</button></div></div><div class="life-summary"><div><span>지난 밤</span><strong id="lastNight">₩0</strong></div><div><span>최고 연승</span><strong id="bestStreak">0</strong></div><div><span>보유 물건</span><strong id="ownedCount">0</strong></div><div><span>삶의 방향</span><strong id="lifePath">아직 없음</strong></div></div><button id="rulesBtn" class="link-btn" type="button">30초 게임 방법</button></section>
 
-    <section id="gameScreen" class="screen game-screen hidden">
-      <div class="status-row">
-        <div class="status-card"><span>도박장</span><strong id="stageLabel">1-1</strong></div>
-        <div class="status-card target"><span>목표</span><strong id="targetLabel">₩500</strong></div>
-        <div class="status-card"><span>보유금</span><strong id="bankLabel">₩0</strong></div>
-      </div>
+<section id="nightScreen" class="screen night-screen hidden"><div class="night-head"><div><span>테이블</span><strong id="tableLabel">1 / 6</strong></div><div><span>가진 칩</span><strong id="chipLabel">₩500</strong></div><div><span>연승 수익</span><strong id="potLabel">₩0</strong></div><div><span>위험 배율</span><strong id="riskLabel">×1</strong></div></div><div id="dealerLine" class="dealer-line">“세 장뿐이야. 같은 그림 두 개면 돈을 주지.”</div>
+<div class="machine"><div id="slots" class="slots" aria-label="세 장의 패"><button class="slot" data-slot="0" type="button"><span class="lock-label">누르면 고정</span><i>?</i><b>?</b></button><button class="slot" data-slot="1" type="button"><span class="lock-label">누르면 고정</span><i>?</i><b>?</b></button><button class="slot" data-slot="2" type="button"><span class="lock-label">누르면 고정</span><i>?</i><b>?</b></button></div><div id="oddsStrip" class="odds-strip"><span>🪙 금화 짝 ×2 / 셋 ×6</span><span>🌹 장미 짝 ×3 / 셋 ×10</span><span>💀 해골 짝 ×5 / 셋 ×20</span></div><div class="machine-controls"><div class="bet-box"><span>판돈</span><strong>₩100</strong></div><button id="dealBtn" class="lever-btn" type="button">세 장 뽑기</button><button id="rerollBtn" class="reroll-btn hidden" type="button">나머지 다시 뽑기 <small id="rerollCost">₩30</small></button><button id="settleBtn" class="settle-btn hidden" type="button">이 패로 승부</button></div></div>
+<div class="night-bottom"><div><div class="mini-title"><span>이번 밤의 장치</span><small id="deviceCount">0 / 5</small></div><div id="deviceRack" class="device-rack"><span class="empty">아직 장치가 없습니다</span></div></div><button id="leaveNightBtn" class="link-btn" type="button">지금 집으로 돌아가기</button></div><div id="resultBurst" class="result-burst hidden" aria-live="polite"></div></section>
 
-      <div id="bossBanner" class="boss-banner hidden"></div>
-
-      <div class="table-area">
-        <aside class="next-panel">
-          <span>NEXT</span>
-          <strong id="nextTile" class="next-tile">7</strong>
-          <small id="turnLabel">1 / 10</small>
-        </aside>
-
-        <div>
-          <div id="board" class="board" role="grid" aria-label="4 곱하기 4 숫자판"></div>
-          <p id="hint" class="hint">빈칸을 눌러 숫자를 놓으세요</p>
-        </div>
-
-        <aside class="round-panel">
-          <span>이번 판</span>
-          <strong id="potLabel">₩0</strong>
-          <span>연승 배율</span>
-          <strong id="riskLabel" class="risk">×1</strong>
-        </aside>
-      </div>
-
-      <div id="scoreBurst" class="score-burst hidden" aria-live="polite"></div>
-
-      <div class="combo-box">
-        <div class="combo-head"><span>발견한 조합</span><span id="comboTotal">기본 ×1</span></div>
-        <div id="comboLog" class="combo-log"><span class="muted">아직 조합이 없습니다</span></div>
-      </div>
-
-      <div class="item-rack-wrap">
-        <div class="section-title"><span>규칙 장치</span><small id="itemCount">0 / 5</small></div>
-        <div id="itemRack" class="item-rack"><div class="empty-rack">빈 장치 슬롯</div></div>
-      </div>
-
-      <footer class="game-footer">
-        <div class="footer-buttons">
-          <button id="catalogBtn" class="text-button" type="button">조합 도감</button>
-          <button id="menuBtn" class="text-button" type="button">기록 포기</button>
-        </div>
-        <div id="message" class="message" aria-live="polite"></div>
-      </footer>
-    </section>
-  </main>
-
-  <div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="modal-card">
-      <p id="modalKicker" class="eyebrow"></p>
-      <h2 id="modalTitle"></h2>
-      <div id="modalBody"></div>
-      <div id="modalActions" class="modal-actions"></div>
-    </div>
-  </div>
-
-  <script src="game.js"></script>
-</body>
-</html>
+<section id="dayScreen" class="screen day-screen hidden"><div class="day-head"><div><p class="kicker">THE LIFE OUTSIDE</p><h2>낮의 세계</h2><p>번 돈은 숫자가 아니라 당신이 산 것들로 남는다.</p></div><button id="backHomeBtn" class="secondary-btn" type="button">현관으로</button></div><nav id="dayTabs" class="day-tabs" aria-label="낮의 세계 분류"><button class="active" data-tab="luxury" type="button">사치품</button><button data-tab="donation" type="button">기부</button><button data-tab="business" type="button">회사</button><button data-tab="small" type="button">소소한 소비</button><button data-tab="room" type="button">나의 방</button></nav><div id="dayIntro" class="day-intro"></div><div id="shopGrid" class="shop-grid"></div></section>
+</main><div id="modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-card"><p id="modalKicker" class="kicker"></p><h2 id="modalTitle"></h2><div id="modalBody"></div><div id="modalActions" class="modal-actions"></div></div></div><script src="game.js"></script></body></html>
