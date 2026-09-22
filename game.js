@@ -33,17 +33,29 @@
     { id:"tax", name:"세금 징수원", text:"현금화할 때 20%를 가져간다.", every:3 }
   ];
 
+  const COMBOS = [
+    {name:"네 쌍", example:"7·7·7·7", rule:"네 숫자가 모두 같음", mult:7},
+    {name:"세 쌍", example:"3·3·3·8", rule:"같은 숫자가 3개", mult:4},
+    {name:"두 쌍", example:"2·2·6·6", rule:"같은 숫자 두 쌍", mult:3},
+    {name:"연속수", example:"2·3·4·5", rule:"순서와 무관하게 네 숫자가 연속", mult:4},
+    {name:"블랙 21", example:"2·4·7·8", rule:"네 숫자의 합이 21", mult:5},
+    {name:"둥근 합", example:"2·3·6·9", rule:"합이 10·20·30처럼 10단위", mult:2},
+    {name:"홀수 행진", example:"1·3·5·8", rule:"홀수가 3개 이상", mult:2}
+  ];
+
   const state = {
     board:Array(16).fill(null), next:1, turn:0, maxTurns:10, stage:1, room:1,
     target:500, bank:0, pot:0, roundGain:0, risk:1, streak:0, items:[], boss:null,
     endless:false, insuranceUsed:false, rerollUsed:false, sound:false, locked:false,
-    seenLines:new Set(), scoredCells:new Set()
+    seenLines:new Set(), scoredCells:new Set(), tutorialStep:0, tutorialDeck:[]
   };
 
   const $ = (id) => document.getElementById(id);
   const money = (n) => `₩${WON.format(Math.max(0, Math.floor(n)))}`;
   const has = (id) => state.items.some(i => i.id === id);
   const record = JSON.parse(localStorage.getItem("hanpan-records") || '{"runs":0,"wins":0,"best":0,"stage":1,"combo":1}');
+  const discovered = new Set(JSON.parse(localStorage.getItem("hanpan-discovered") || "[]"));
+  const tutorialDone = () => localStorage.getItem("hanpan-tutorial") === "done";
 
   function saveRecord() { localStorage.setItem("hanpan-records", JSON.stringify(record)); }
   function updateTitleRecords() {
@@ -60,6 +72,7 @@
   }
 
   function randTile() {
+    if(state.tutorialDeck.length) return state.tutorialDeck.shift();
     const pool = [1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9];
     return pool[Math.floor(Math.random()*pool.length)];
   }
@@ -73,7 +86,14 @@
   function startGame() {
     Object.assign(state, {stage:1,room:1,target:500,bank:0,pot:0,risk:1,streak:0,items:[],boss:null,endless:false,insuranceUsed:false});
     record.runs++; saveRecord(); $("titleScreen").classList.add("hidden"); $("gameScreen").classList.remove("hidden");
+    state.tutorialStep=tutorialDone()?0:1;
+    state.tutorialDeck=state.tutorialStep?[1,2,3,4,7,7,7,7,5,6]:[];
     closeModal(); resetBoard();
+    if(state.tutorialStep) setTimeout(showTutorialStart,120);
+  }
+
+  function showTutorialStart(){
+    openModal("먼저 숫자를 놓아보자", `<p>왼쪽의 <b>NEXT 숫자</b>를 4×4 판의 원하는 빈칸에 놓습니다.</p><div class="tutorial-example">NEXT 1 → 맨 윗줄 첫 칸</div><p>처음 네 숫자는 <b>1·2·3·4</b>가 나옵니다. 반짝이는 윗줄을 채워 연속수를 직접 만들어보세요.</p>`, [["숫자 놓아보기",()=>closeModal(),"primary"]], "첫 판 안내 1/3");
   }
 
   function lineVariants(values) {
@@ -143,7 +163,16 @@
       record.combo=Math.max(record.combo,Math.floor(peak*state.risk));
       showMessage(`+${money(gained)} · ${hits.map(h=>h.name).join(" + ")}`); beep(660,.13,"sawtooth");
     }
+    if(hits.length){
+      hits.forEach(h=>discovered.add(h.name));
+      localStorage.setItem("hanpan-discovered",JSON.stringify([...discovered]));
+      showScoreBurst(hits,gained,peak);
+    }
     state.next=randTile(); render(hits);
+    if(state.tutorialStep===1){
+      state.tutorialStep=2;
+      setTimeout(()=>openModal("줄을 완성하면 판정!", `<p>가로·세로·대각선 중 <b>네 칸이 전부 채워진 줄</b>만 조합을 검사합니다.</p><div class="tutorial-example">1 · 2 · 3 · 4 = 연속수 ×4</div><p>금색으로 반짝이는 칸은 지금 숫자를 놓으면 즉시 조합이 생기는 자리입니다.</p>`, [["계속 놓기",()=>closeModal(),"primary"]], "첫 판 안내 2/3"),220);
+    }
     if(state.turn>=state.maxTurns || state.board.every(v=>v!==null)) endRound();
   }
 
@@ -151,12 +180,14 @@
     state.locked=true; const success=state.roundGain>0;
     if(!success) {
       if(has("insurance")&&!state.insuranceUsed&&state.risk>1){ state.insuranceUsed=true; cashOut(true); return; }
-      openModal("판이 비었습니다", `<p>이번 판에서는 돈이 되는 조합을 만들지 못했습니다.</p><p class="danger">이어 걸었던 금액과 연승이 모두 사라집니다.</p>`, [
+      const completed=[...state.seenLines].length;
+      openModal("조합을 만들지 못했습니다", `<p><b>${state.turn}개</b>의 숫자를 놓았고, 완성된 네 칸 줄은 <b>${completed}개</b>였습니다.</p><p>완성된 줄에서 같은 수·연속수·합계 21 등의 조합이 나오지 않았습니다. 다음에는 한 줄을 먼저 노려보세요.</p><p class="danger">이어 걸었던 금액과 연승 수익은 사라집니다.</p>`, [
         ["다시 시작",()=>gameOver(),"primary"]
       ], "BUST"); return;
     }
     const projected=calculateCash();
-    openModal("여기서 멈출까?", `<p>이번 판 수익 <b>${money(state.roundGain)}</b> · 연승 누적 <b>${money(state.pot)}</b></p><p>지금 챙기면 <b>${money(projected)}</b>을 보유금에 넣습니다.</p><p class="danger">한 판 더 가면 위험 배율이 오르지만, 실패 시 이번 연승 수익을 잃습니다.</p>`, [
+    if(state.tutorialStep===2){state.tutorialStep=3;localStorage.setItem("hanpan-tutorial","done");}
+    openModal("여기서 멈출까?", `${state.tutorialStep===3?'<div class="tutorial-example">챙긴다 = 수익 확정<br>다시 건다 = 배율 증가 + 전액 손실 위험</div>':''}<p>이번 판 수익 <b>${money(state.roundGain)}</b> · 연승 누적 <b>${money(state.pot)}</b></p><p>지금 챙기면 <b>${money(projected)}</b>을 보유금에 넣습니다.</p><p class="danger">한 판 더 가면 위험 배율이 오르지만, 실패 시 이번 연승 수익을 잃습니다.</p>`, [
       ["돈을 챙긴다",()=>cashOut(false),""], ["전부 다시 건다",()=>pushLuck(),"primary"]
     ], `연승 ${state.streak+1}`);
   }
@@ -229,14 +260,42 @@
     $("bankLabel").textContent=money(state.bank); $("potLabel").textContent=money(state.pot); $("riskLabel").textContent=`×${state.risk}`;
     $("nextTile").textContent=state.next; $("turnLabel").textContent=`${state.turn} / ${state.maxTurns}`;
     $("bossBanner").classList.toggle("hidden",!state.boss); $("bossBanner").textContent=state.boss?`보스 규칙 · ${state.boss.name}: ${state.boss.text}`:"";
-    $("hint").textContent=has("pocket")&&!state.rerollUsed?"숫자 타일을 누르면 한 번 다시 뽑을 수 있습니다":"빈칸을 눌러 숫자를 놓으세요";
+    const predictions=getPredictions();
+    $("hint").textContent=predictions.size?`금색 칸에 놓으면 ${[...new Set(predictions.values())].join(" 또는 ")} 완성!`:has("pocket")&&!state.rerollUsed?"숫자 타일을 누르면 한 번 다시 뽑을 수 있습니다":"한 줄 네 칸을 먼저 완성해 보세요";
     $("nextTile").onclick=reroll; $("nextTile").style.cursor=has("pocket")&&!state.rerollUsed?"pointer":"default";
-    $("board").innerHTML=state.board.map((v,i)=>`<button class="cell ${v!==null?"filled":""} ${state.scoredCells.has(i)?"scored":""}" data-cell="${i}" role="gridcell" aria-label="${v===null?`빈칸 ${i+1}`:`숫자 ${v}`}">${v===null?"":v}</button>`).join("");
+    $("board").innerHTML=state.board.map((v,i)=>`<button class="cell ${v!==null?"filled":""} ${state.scoredCells.has(i)?"scored":""} ${predictions.has(i)?"hot":""} ${state.tutorialStep&&i<4?"tutorial-target":""}" data-cell="${i}" role="gridcell" aria-label="${v===null?`빈칸 ${i+1}${predictions.has(i)?`, ${predictions.get(i)} 완성 가능`:""}`:`숫자 ${v}`}">${v===null?"":v}</button>`).join("");
     document.querySelectorAll("[data-cell]").forEach(el=>el.addEventListener("click",()=>place(Number(el.dataset.cell))));
     const allCombos=[]; LINES.forEach((line,li)=>{ if(state.seenLines.has(li)&&line.every(i=>state.board[i]!==null)){const c=classify(line.map(i=>state.board[i]),line);if(c)allCombos.push(c);} });
     $("comboLog").innerHTML=allCombos.length?allCombos.map(c=>`<span class="combo-pill">${c.name} ×${c.mult*itemMultiplier(c)}</span>`).join(""):'<span class="muted">아직 조합이 없습니다</span>';
     $("comboTotal").textContent=`위험 ×${state.risk}`; $("itemCount").textContent=`${state.items.length} / 5`;
     $("itemRack").innerHTML=state.items.length?state.items.map(i=>`<div class="item-card"><b>${i.name}</b><small>${i.text}</small></div>`).join(""):'<div class="empty-rack">빈 장치 슬롯</div>';
+  }
+
+  function getPredictions(){
+    const result=new Map();
+    state.board.forEach((v,index)=>{
+      if(v!==null)return;
+      for(const line of LINES){
+        if(!line.includes(index))continue;
+        const values=line.map(i=>i===index?state.next:state.board[i]);
+        if(values.some(n=>n===null))continue;
+        const combo=classify(values,line);
+        if(combo){result.set(index,combo.name);break;}
+      }
+    });
+    return result;
+  }
+
+  function showScoreBurst(hits,gained,peak){
+    const el=$("scoreBurst");
+    el.innerHTML=`${hits.map(h=>h.name).join(" + ")}<br><small>${hits.map(h=>`${money(h.base)} ×${h.mult} ×장치${itemMultiplier(h)}`).join(" · ")}</small><br>+${money(gained)}`;
+    el.classList.remove("hidden"); el.style.animation="none"; void el.offsetWidth; el.style.animation="";
+    clearTimeout(showScoreBurst.t); showScoreBurst.t=setTimeout(()=>el.classList.add("hidden"),1500);
+  }
+
+  function showCatalog(){
+    const entries=COMBOS.map(c=>{const open=discovered.has(c.name);return `<div class="catalog-entry ${open?"":"locked"}"><b>${open?c.name:"???"} · ×${c.mult}</b><small>${open?`${c.example}<br>${c.rule}`:"플레이하며 발견하세요"}</small></div>`}).join("");
+    openModal("조합 도감", `<p>기본 조합은 알려주되, 장치끼리 생기는 특수 시너지는 직접 발견할 수 있습니다.</p><div class="catalog-grid">${entries}</div>`, [["게임으로",()=>closeModal(),"primary"]], `${discovered.size} / ${COMBOS.length} 발견`);
   }
 
   function showMessage(text){ $("message").textContent=text; clearTimeout(showMessage.t); showMessage.t=setTimeout(()=>$("message").textContent="",2600); }
@@ -250,6 +309,7 @@
   function showHow(){ openModal("30초 게임 방법", `<ol class="rules-list"><li>나오는 숫자를 4×4 판의 빈칸에 놓습니다.</li><li>가로·세로·대각선 네 칸으로 <b>같은 수, 연속수, 합계 21</b> 등의 조합을 만듭니다.</li><li>한 판이 끝나면 돈을 챙기거나 전부 걸고 위험 배율을 올립니다.</li><li>목표 금액을 넘겨 도박장을 통과하고, 장치들의 효과를 엮어 규칙을 망가뜨리세요.</li><li>8번째 도박장을 깨면 나갈 수도, 무한히 계속할 수도 있습니다.</li></ol>`, [["알겠어",()=>closeModal(),"primary"]], "HOW TO PLAY"); }
 
   $("startBtn").addEventListener("click",startGame); $("howBtn").addEventListener("click",showHow);
+  $("catalogBtn").addEventListener("click",showCatalog);
   $("menuBtn").addEventListener("click",()=>openModal("정말 포기할까요?","<p>현재 런의 진행 상황은 사라집니다.</p>",[["계속한다",closeModal,""],["포기한다",()=>gameOver(),"primary"]],"주의"));
   $("soundBtn").addEventListener("click",()=>{state.sound=!state.sound;$("soundBtn").classList.toggle("on",state.sound);$("soundBtn").setAttribute("aria-label",state.sound?"효과음 끄기":"효과음 켜기");beep(660,.1);});
   updateTitleRecords();
