@@ -59,6 +59,8 @@
         </aside>
       </div>
 
+      <div id="scoreBurst" class="score-burst hidden" aria-live="polite"></div>
+
       <div class="combo-box">
         <div class="combo-head"><span>발견한 조합</span><span id="comboTotal">기본 ×1</span></div>
         <div id="comboLog" class="combo-log"><span class="muted">아직 조합이 없습니다</span></div>
@@ -70,7 +72,10 @@
       </div>
 
       <footer class="game-footer">
-        <button id="menuBtn" class="text-button" type="button">기록 포기</button>
+        <div class="footer-buttons">
+          <button id="catalogBtn" class="text-button" type="button">조합 도감</button>
+          <button id="menuBtn" class="text-button" type="button">기록 포기</button>
+        </div>
         <div id="message" class="message" aria-live="polite"></div>
       </footer>
     </section>
