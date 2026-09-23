@@ -8,7 +8,7 @@ function boot(saved,withEvents=false){
  const document={getElementById(id){if(!elements.has(id))elements.set(id,el());return elements.get(id)},querySelectorAll(){return[]},createElement:el};
  const math=Object.create(Math);math.random=()=>.1;
  const context=vm.createContext({document,localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},navigator:{},window:{},Math:math,mathRandom:v=>math.random=()=>v});
- vm.runInContext(source.replace(/\}\)\(\);\s*$/,`globalThis.test={state:()=>s,set:x=>s=x,fresh,rawStart:beginNight,lobby:startNight,startNight:()=>{beginNight();if(s.night?.phase==='starter'){selectDevice('roseLuck');s.night.devices=[];if(s.night.preShop)nextTable()}},selectDevice,beginNight,changeStake,room,tableBase,active,expireItems,useItem,itemSale,repairPrice,repairItem,rerollLimit,takeLoan,payLoan,settleLoans,foreclose,liquidateLoan,loanOffers,totalDebt,pledged,lockedAssets,businessLevel,businessStats,businessCapital,upgradeBusiness,retire,retirementOptions,deal,evaluate,resolveChoice,advanceHand,endNight,borrow,pay,buy,sell,confirmHome,checkBankruptcy,reset,baseBet,bet,assets,credit,wealth,GOODS,HOMES,save,handValue,handLimit,handIndex,target,symbolWeights,bossFor,toggleLock,buyDevice,sellDevice,refreshStock,nextTable,openNightShop,devicePrice,renderNightShop,checkLifeGoals,DEVICES,BOSSES,eventCatalog,queueLifeEvent,resolveLifeEvent,finishLifeEvent,showLifeEvent,upkeep,businessMultiplier,expireEffects,openDay,random:v=>mathRandom(v)};})();`),context);
+ vm.runInContext(source.replace(/\}\)\(\);\s*$/,`globalThis.test={state:()=>s,set:x=>s=x,fresh,handScore,scored,chooseGoal,updateGoal,luxLevel,upgradeLuxury,luxuryAction,finishLuxury,reserveOffer,rerollCost,refreshPrice,resale,LUXURY,beginBaccarat,baccaratBet,dealBaccarat,nextBaccarat,baccaratHand,baccaratShoe,baccaratTotal,bankerDraw,baccaratPayout,rawStart:beginNight,lobby:startNight,startNight:()=>{beginNight();if(s.night?.phase==='starter'){selectDevice('roseLuck');s.night.devices=[];if(s.night.preShop)nextTable()}},selectDevice,beginNight,changeStake,room,tableBase,active,expireItems,useItem,itemSale,repairPrice,repairItem,rerollLimit,takeLoan,payLoan,settleLoans,foreclose,liquidateLoan,loanOffers,totalDebt,pledged,lockedAssets,businessLevel,businessStats,businessCapital,upgradeBusiness,retire,retirementOptions,deal,evaluate,resolveChoice,advanceHand,endNight,borrow,pay,buy,sell,confirmHome,checkBankruptcy,reset,baseBet,bet,assets,credit,wealth,GOODS,HOMES,save,handValue,handLimit,handIndex,target,symbolWeights,bossFor,toggleLock,buyDevice,sellDevice,refreshStock,nextTable,openNightShop,devicePrice,renderNightShop,checkLifeGoals,DEVICES,BOSSES,eventCatalog,queueLifeEvent,resolveLifeEvent,finishLifeEvent,showLifeEvent,upkeep,businessMultiplier,expireEffects,openDay,random:v=>mathRandom(v)};})();`),context);
  if(!withEvents)context.test.state().nextEventDay=999999;
  return{...context.test,storage,click(label){const b=elements.get('modalActions').children.find(b=>b.textContent===label);assert.ok(b,'missing button '+label);b.onclick()},elements};
 }
@@ -26,10 +26,10 @@ test('bankruptcy and new life preserve historical record',()=>{const t=boot();Ob
 test('unpaid living expenses carried as bills and prohibit shopping',()=>{const t=boot();t.state().money=100;t.startNight();t.deal();t.endNight();assert.equal(t.state().bills,85);const before=t.state().owned.length;t.buy('radio');assert.equal(t.state().owned.length,before)});
 test('abandoning unresolved risk cannot keep previous winnings',()=>{const t=boot();t.startNight();t.deal();t.state().night.cards=['coin','coin','rose'];t.evaluate();t.resolveChoice(true);assert.equal(t.state().night.pot,60);t.deal();t.endNight();assert.equal(t.state().money,915)});
 test('last credit remainder is borrowable',()=>{const t=boot();Object.assign(t.state(),{money:0,debt:700,due:6});assert.equal(t.credit(),100);assert.equal(t.checkBankruptcy(),false);t.borrow(100);t.click('빌린다');assert.equal(t.state().money,100);assert.equal(t.state().debt,800)});
-test('stale HTML recovers before reading or mutating saved money',()=>{let redirected='';vm.runInNewContext(source,{document:{getElementById:()=>null},URL,location:{href:'https://example.com/han-pan-man/',replace:url=>redirected=url},localStorage:{getItem(){throw Error('save must remain untouched')}}});assert.equal(redirected,'https://example.com/han-pan-man/index.html?v=8.1')});
+test('stale HTML recovers before reading or mutating saved money',()=>{let redirected='';vm.runInNewContext(source,{document:{getElementById:()=>null},URL,location:{href:'https://example.com/han-pan-man/',replace:url=>redirected=url},localStorage:{getItem(){throw Error('save must remain untouched')}}});assert.equal(redirected,'https://example.com/han-pan-man/index.html?v=9')});
 test('insufficient stake has actionable message and does not charge',()=>{const t=boot();t.startNight();t.state().money=50;t.deal();assert.equal(t.state().money,50);assert.equal(t.state().night.phase,'ready');assert.equal(t.elements.get('modalTitle').textContent,'판돈이 부족해요');t.click('귀가하기');assert.equal(t.elements.get('modalTitle').textContent,'오늘 밤을 마칠까요?')});
 test('first device selection is saved and cannot be repeated or cashed out',()=>{const t=boot();t.rawStart();assert.equal(t.state().night.phase,'starter');t.selectDevice('pairEngine');t.selectDevice('skullLuck');assert.equal(t.state().night.devices.length,1);assert.equal(t.state().night.paid.pairEngine,0);t.endNight();assert.equal(t.state().money,1200);assert.equal(t.state().day,1)});
-test('targets rise relative to payouts and late tables have fewer hands',()=>{const t=boot();t.startNight();const ratios=[];for(let table=1;table<=6;table++){t.state().night.table=table;ratios.push(t.target()/t.bet())}assert.ok(ratios[5]>ratios[0]*5);assert.equal(t.handLimit(),3);t.state().night.table=1;assert.equal(t.handLimit(),4)});
+test('targets rise relative to payouts and late tables have fewer hands',()=>{const t=boot();t.startNight();const ratios=[];for(let table=1;table<=6;table++){t.state().night.table=table;ratios.push(t.target())}assert.ok(ratios[5]>ratios[0]*5);assert.equal(t.handLimit(),3);t.state().night.table=1;assert.equal(t.handLimit(),4)});
 test('rose growth stacks and preview does not grant growth',()=>{const t=boot();t.startNight();const n=t.state().night;n.devices=['roseLuck','roseBloom','roseVow'];const cards=['rose','rose','coin'];const one=t.handValue(n,cards,100),again=t.handValue(n,cards,100);assert.equal(one.win,218);assert.equal(again.win,218);assert.equal(n.growth.roseWins,undefined);n.growth=one.growth;const two=t.handValue(n,cards,100);assert.equal(two.win,275);assert.ok(two.win>one.win);assert.equal(t.symbolWeights(n).rose,58)});
 test('pair and skull builds reward their intended hands',()=>{const t=boot();t.startNight();const n=t.state().night;n.devices=['pairEngine','pairLadder','lastShot'];n.roundHands=2;n.table=6;n.pairChain=2;n.bosses={};assert.equal(t.handValue(n,['coin','coin','rose'],100).win,660);n.devices=['skullLuck','skullCharm','tripleLens'];assert.equal(t.handValue(n,['skull','skull','skull'],100).win,2700);assert.equal(t.symbolWeights(n).skull,38)});
 test('each boss changes only the advertised rule',()=>{const t=boot();t.startNight();const n=t.state().night;n.table=3;n.bosses={3:'obsession'};n.lastSymbol='coin';assert.equal(t.handValue(n,['coin','coin','rose'],100).win,30);assert.equal(t.handValue(n,['rose','rose','coin'],100).win,90);n.bosses[3]='tax';assert.equal(t.handValue(n,['coin','coin','rose'],100).win,20);assert.equal(t.handValue(n,['coin','coin','coin'],100).win,300);n.bosses[3]='seal';n.phase='dealt';n.cards=['coin','coin','rose'];t.toggleLock(0);t.toggleLock(1);assert.equal(n.locked.filter(Boolean).length,1);t.toggleLock(0);t.toggleLock(1);assert.equal(n.locked[1],true)});
@@ -106,7 +106,7 @@ test('asset effects end on sale or moving and cannot be revived by rebuying',()=
 test('v6 savings and an active night migrate without losing wealth',()=>{
  const state=boot().state();Object.assign(state,{money:9876,home:2,owned:['watch','cafe'],debt:500,due:6});for(const key of ['lifeEvent','eventHistory','eventRecent','effects','nextEventDay'])delete state[key];
  const t=boot(state,true);assert.equal(t.state().money,9876);assert.equal(t.state().debt,500);assert.equal(t.state().home,2);assert.equal(t.state().nextEventDay,2);assert.equal(t.state().effects.length,0);
- t.rawStart();assert.equal(t.state().night.rules,8);assert.equal(t.state().night.phase,'starter');
+ t.rawStart();assert.equal(t.state().night.rules,9);assert.equal(t.state().night.phase,'starter');
 });
 test('recent events and the previous category rotate when alternatives are available',()=>{
  const t=boot(undefined,true),s=t.state();s.day=2;s.owned=['stall','radio'];t.queueLifeEvent();const first=s.lifeEvent;
@@ -124,8 +124,8 @@ test('stake is fixed after deal; targets do not shrink when changing stake',()=>
  const loaded=boot(JSON.parse(t.storage.get('hanpan-life-v5')));assert.equal(loaded.bet(),500);loaded.state().night.cards=['skull','skull','skull'];loaded.evaluate();assert.equal(loaded.state().night.pot,5000);
 });
 test('VIP and secret rooms scale stakes, goals and triple payouts with identical odds',()=>{
- const t=boot();t.state().money=100000;t.beginNight('vip');t.selectDevice('pairEngine');t.state().night.devices=[];t.nextTable();assert.equal(t.bet(),500);assert.equal(t.target(),1800);assert.equal(t.handValue(t.state().night,['coin','coin','coin'],500).win,2250);
- const weights=JSON.stringify(t.symbolWeights());t.endNight();t.beginNight('secret');t.selectDevice('pairEngine');t.state().night.devices=[];t.nextTable();assert.equal(t.bet(),2000);assert.equal(t.target(),9000);assert.equal(JSON.stringify(t.symbolWeights()),weights);
+ const t=boot();t.state().money=100000;t.beginNight('vip');t.selectDevice('pairEngine');t.state().night.devices=[];t.nextTable();assert.equal(t.bet(),500);assert.equal(t.target(),600);assert.equal(t.handValue(t.state().night,['coin','coin','coin'],500).win,2250);
+ const weights=JSON.stringify(t.symbolWeights());t.endNight();t.beginNight('secret');t.selectDevice('pairEngine');t.state().night.devices=[];t.nextTable();assert.equal(t.bet(),2000);assert.equal(t.target(),750);assert.equal(JSON.stringify(t.symbolWeights()),weights);
  assert.equal(t.handValue(t.state().night,['skull','skull','skull'],2000).win,40000);t.changeStake(20);assert.equal(t.bet(),40000);
 });
 test('timed items decay only once per resolved hand and vanish at zero',()=>{
@@ -200,4 +200,98 @@ test('v7 active nights keep their rules while new v8 fields initialize safely',(
  for(const key of ['loans','nextLoanId','businessLevels','ending'])delete s[key];for(const key of ['itemLife','bag','repairs','room','stakeMult','handStake'])delete s.night[key];
  const reload=boot(s);assert.equal(reload.state().money,777);assert.equal(reload.state().debt,300);assert.equal(reload.state().night.rules,6);assert.equal(reload.bet(),100);reload.changeStake(5);assert.equal(reload.bet(),100);reload.evaluate();assert.equal(reload.state().night.pot,150);
 });
+
+test('v9 points exclude stake, risk and room cash multipliers; insurance scores zero',()=>{
+ const t=boot();t.state().money=100000;t.startNight();const n=t.state().night;
+ assert.equal(t.handScore(n,['coin','coin','rose']),30);
+ const triple=t.handScore(n,['skull','skull','skull']);n.room='secret';n.risk=4;t.changeStake(20);
+ assert.equal(t.handScore(n,['skull','skull','skull']),triple);assert.equal(t.handScore(n,['coin','coin','rose']),30);
+ n.devices=['insurance','fever'];assert.equal(t.handScore(n,['coin','rose','skull']),0);
+ n.devices=['pairEngine'];assert.equal(t.handScore(n,['rose','rose','coin']),90);
+ t.deal();n.cards=['rose','rose','coin'];t.evaluate();assert.equal(n.tableScore,90);assert.ok(n.pot>90);t.evaluate();assert.equal(n.tableScore,90);
+});
+test('unbuilt pairs cannot clear first table while an invested pair build remains viable',()=>{
+ const t=boot();t.state().money=100000;t.startNight();const n=t.state().night;
+ for(let i=0;i<4;i++){t.deal();n.cards=['skull','skull','coin'];t.evaluate();t.resolveChoice(false)}
+ assert.equal(n.tableScore,280);assert.equal(n.phase,'checkpoint');assert.ok(n.tableScore<t.target());
+ n.table=6;n.phase='ready';n.bosses={};n.devices=['skullPair','pairLadder','finalMatch'];n.itemLife={finalMatch:1};n.pairChain=5;n.roundHands=2;
+ assert.equal(t.handScore(n,['skull','skull','coin']),1170);
+});
+test('last timed charge contributes points before expiration and previews never consume it',()=>{
+ const t=boot();t.startNight();const n=t.state().night;n.devices=['fever'];n.itemLife.fever=1;
+ assert.equal(t.handScore(n,['coin','coin','coin']),450);assert.equal(n.itemLife.fever,1);
+ t.deal();t.evaluate();assert.equal(n.tableScore,450);assert.ok(!n.devices.includes('fever'));
+});
+test('v8 current hand keeps monetary scoring after migration',()=>{
+ const t=boot();t.startNight();const s=t.state();s.night.rules=8;s.night.phase='dealt';s.night.cards=['coin','coin','rose'];s.night.handStake=500;s.night.devices=['pairEngine'];s.money=555;
+ delete s.lifeGoal;delete s.luxuryLevels;delete s.roomUsed;
+ const r=boot(s);assert.equal(r.state().money,555);assert.equal(r.target(),300);r.evaluate();assert.equal(r.state().night.tableScore,750);
+});
+test('life goals retain stage progress, grant rewards once and require a new final clear',()=>{
+ const t=boot(),s=t.state();s.lifeGoal='business';s.money=50000;s.owned=['stall','shop','hotel'];s.businessLevels.stall=2;
+ t.save();assert.equal(s.goalStage,4);assert.equal(s.shopCoupons,3);assert.equal(s.goalFinalClear,false);assert.equal(s.memories,4);
+ t.save();assert.equal(s.memories,4);s.owned=[];t.save();assert.equal(s.goalStage,4);
+ t.startNight();const n=s.night;assert.equal(n.rules,9);n.table=6;n.tableScore=t.target();n.phase='resolved';t.advanceHand();
+ assert.equal(s.goalStage,5);assert.equal(s.goalFinalClear,true);assert.ok(t.retirementOptions().find(e=>e.id==='purpose').ok);
+ const r=boot(JSON.parse(t.storage.get('hanpan-life-v5')));assert.equal(r.state().goalStage,5);
+});
+test('all life paths have reachable intermediate stages and reset clears purpose',()=>{
+ for(const path of ['home','patron']){const t=boot(),s=t.state();s.lifeGoal=path;s.owned=['radio','stall'];s.luxuryLevels.radio=3;s.money=30000;s.home=3;s.good=20;t.save();assert.equal(s.goalStage,4);t.reset('hard');assert.equal(t.state().lifeGoal,null);assert.equal(t.state().goalStage,0);assert.equal(t.state().shopCoupons,0)}
+});
+test('ten functional possessions upgrade with real costs and lose levels after resale',()=>{
+ const t=boot(),s=t.state();assert.equal(Object.keys(t.LUXURY).length,10);s.money=10000;t.buy('radio');t.upgradeLuxury('radio');t.click('업그레이드');t.upgradeLuxury('radio');t.click('업그레이드');
+ assert.equal(t.luxLevel('radio'),3);assert.equal(s.money,9550);assert.equal(t.resale(t.GOODS.find(g=>g.id==='radio')),270);assert.equal(t.upkeep(),70);
+ t.sell('radio');t.click('판매한다');t.buy('radio');assert.equal(t.luxLevel('radio'),1);
+});
+test('passive luxury effects change only their disclosed economic costs',()=>{
+ const t=boot(),s=t.state();s.owned=['lamp','headphone','watch','suit'];s.luxuryLevels={lamp:3,headphone:3,watch:3,suit:3};t.startNight();
+ assert.equal(t.refreshPrice(),18);assert.equal(t.rerollCost(),22);assert.equal(t.devicePrice('roseBloom'),198);assert.equal(t.businessMultiplier('stall'),1.09);
+ s.shopCoupons=1;s.night.phase='shop';s.night.offers=['roseBloom'];assert.equal(t.devicePrice('roseBloom'),179);t.buyDevice('roseBloom');assert.equal(s.shopCoupons,0);assert.equal(s.night.paid.roseBloom,179);
+});
+test('watch reserves one item through paid stock refresh and saves the reservation',()=>{
+ const t=boot();t.state().owned=['watch'];t.startNight();const n=t.state().night;n.phase='shop';n.offers=['roseBloom'];t.reserveOffer('roseBloom');t.refreshStock();assert.ok(n.offers.includes('roseBloom'));assert.equal(n.offers.length,6);
+ const r=boot(JSON.parse(t.storage.get('hanpan-life-v5')));assert.equal(r.state().night.reserved,'roseBloom');
+});
+test('room actions cannot farm by repeat, reload or selling and rebuying',()=>{
+ const t=boot(),s=t.state();s.money=10000;s.owned=['camera'];t.luxuryAction('camera');t.click('시작한다');assert.equal(s.money,10060);const money=s.money;
+ t.luxuryAction('camera');assert.equal(s.money,money);const r=boot(JSON.parse(t.storage.get('hanpan-life-v5')));r.luxuryAction('camera');assert.equal(r.state().money,money);
+ t.sell('camera');t.click('판매한다');t.buy('camera');const afterBuy=s.money;t.luxuryAction('camera');assert.equal(s.money,afterBuy);
+ t.startNight();t.endNight();assert.equal(s.day,1);t.luxuryAction('camera');assert.equal(s.money,afterBuy);
+ s.day++;t.luxuryAction('camera');t.click('시작한다');assert.equal(s.money,afterBuy+60);
+});
+test('room activity failures accrue bills, practice grants only one reward',()=>{
+ const t=boot(),s=t.state();s.owned=['car'];s.money=300;t.random(.99);t.luxuryAction('car');t.click('시작한다');assert.equal(s.money,0);assert.equal(s.bills,150);
+ const p=boot();p.state().owned=['console'];p.luxuryAction('console');p.click('75점');assert.equal(p.state().memories,1);assert.equal(p.state().shopCoupons,1);p.luxuryAction('console');assert.equal(p.state().shopCoupons,1);
+});
+test('banker third-card tableau covers every total and player third card',()=>{
+ const t=boot(),expected=[[0,1,2,3,4,5,6,7,8,9],[0,1,2,3,4,5,6,7,8,9],[0,1,2,3,4,5,6,7,8,9],[0,1,2,3,4,5,6,7,9],[2,3,4,5,6,7],[4,5,6,7],[6,7],[],[],[]];
+ for(let total=0;total<10;total++){assert.equal(t.bankerDraw(total,null),total<=5);for(let third=0;third<10;third++)assert.equal(t.bankerDraw(total,third),expected[total].includes(third))}
+});
+test('baccarat eight-deck shoe, natural stops and drawing order follow rules',()=>{
+ const t=boot(),shoe=t.baccaratShoe();assert.equal(shoe.length,416);const counts={};shoe.forEach(c=>counts[c.rank+'-'+c.suit]=(counts[c.rank+'-'+c.suit]||0)+1);assert.equal(Object.keys(counts).length,52);assert.ok(Object.values(counts).every(n=>n===8));
+ const hand=ranks=>t.baccaratHand(ranks.map(rank=>({rank,suit:0})).reverse());
+ const natural=hand([4,2,5,3,1,1]);assert.equal(natural.pt,9);assert.equal(natural.player.length,2);assert.equal(natural.banker.length,2);
+ const draw=hand([2,1,3,2,8,6]);assert.equal(draw.player.length,3);assert.equal(draw.banker.length,2);assert.equal(draw.pt,3);assert.equal(draw.bt,3);
+ const stand=hand([3,2,3,3,4]);assert.equal(stand.player.length,2);assert.equal(stand.banker.length,3);assert.equal(stand.bt,9);
+});
+test('baccarat commission, tie pushes and tie payout are exact',()=>{
+ const t=boot();assert.equal(t.baccaratPayout('player','player',100),200);assert.equal(t.baccaratPayout('banker','banker',100),195);assert.equal(t.baccaratPayout('banker','banker',110),214);
+ for(const side of ['player','banker'])assert.equal(t.baccaratPayout(side,'tie',100),100);
+ assert.equal(t.baccaratPayout('tie','tie',100),900);assert.equal(t.baccaratPayout('tie','player',100),0);assert.equal(t.baccaratPayout('banker','player',100),0);
+});
+test('baccarat charges and pays once, freezes result and resumes without redraw',()=>{
+ const t=boot();t.beginBaccarat();const n=t.state().night;n.shoe=[1,1,3,5,2,4].map(rank=>({rank,suit:0}));t.dealBaccarat();
+ assert.equal(t.state().money,1300);assert.equal(n.hands,1);assert.equal(n.shoe.length,2);t.dealBaccarat();assert.equal(t.state().money,1300);t.baccaratBet('tie',20);assert.equal(n.side,'player');
+ const r=boot(JSON.parse(t.storage.get('hanpan-life-v5')));assert.equal(r.state().night.last.pt,9);assert.equal(r.state().money,1300);r.dealBaccarat();assert.equal(r.state().money,1300);
+ r.nextBaccarat();assert.equal(r.state().night.phase,'ready');
+});
+test('baccarat shares loans and settlement, empty entry costs nothing and no double return',()=>{
+ const t=boot(),s=t.state();t.beginBaccarat();t.endNight();assert.equal(s.day,1);assert.equal(s.money,1200);
+ s.debt=500;s.due=6;t.beginBaccarat();t.dealBaccarat();const afterDeal=s.money;t.endNight();assert.equal(s.day,2);assert.equal(s.money,afterDeal-85);assert.equal(s.debt,540);t.endNight();assert.equal(s.money,afterDeal-85);
+});
+test('baccarat insufficient funds, overdue debt and 12 hand limit are enforced',()=>{
+ const t=boot(),s=t.state();s.bills=1;t.beginBaccarat();assert.equal(s.night,null);s.bills=0;t.beginBaccarat();t.baccaratBet('tie',20);t.dealBaccarat();assert.equal(s.money,1200);assert.equal(s.night.hands,0);
+ s.money=100000;t.baccaratBet('player',1);for(let i=0;i<12;i++){t.dealBaccarat();assert.equal(s.night.hands,i+1);if(i<11)t.nextBaccarat()}const after=s.money;t.dealBaccarat();assert.equal(s.money,after);t.nextBaccarat();assert.equal(s.night,null);assert.equal(s.day,2);
+});
+
 console.log(`${tests} economic and state regression tests passed`);
