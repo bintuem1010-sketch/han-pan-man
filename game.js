@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id), fmt=n=>`${n<0?'-':''}₩${Math.abs(Math
 // Old installed pages may receive new JS before their HTML refreshes.
 // Recover before touching state or charging a stake; never delete saves.
 if(!['betAmount','economyBar','homeNote','saveWarning','bossBanner','runTrack','handPreview','lifeStatus','stakeControls','bagRack'].every(id=>$(id))){
- const recovery=new URL('index.html',location.href);recovery.searchParams.set('v','8');
+ const recovery=new URL('index.html',location.href);recovery.searchParams.set('v','8.1');
  if(location.href!==recovery.href)location.replace(recovery.href);
  return;
 }
@@ -368,7 +368,13 @@ function checkpoint(){const n=s.night;if(n?.phase!=='checkpoint')return;const pa
 function chooseDevice(){const n=s.night;if(!n||!['starter','device'].includes(n.phase))return;modal(n.phase==='starter'?'오늘 밤의 승부수':'이번 밤의 장치',`<p>세 장의 짝을 맞추는 룰은 같습니다. 첫 장치 하나를 무료로 선택하세요. ${modern(n)?'장치 슬롯 3개와 소모품 가방 2칸. 준비 상점에서 물건을 사고 시작합니다.':'진행 중이던 밤은 기존 목표로 마무리합니다.'}</p>${upcomingBossText(n)}<div class="choice-grid">${n.offers.filter(id=>device(id)).map(id=>{const d=device(id);return`<button class="choice" data-device="${id}"><small>${d.tag}</small><b>${d.name}</b><small>${d.text}</small></button>`}).join('')}</div>`,[]);bind('device',selectDevice)}
 function selectDevice(id){const n=s.night;if(!n||!['starter','device'].includes(n.phase)||!n.offers.includes(id)||has(id))return;n.devices.push(id);n.paid[id]=0;n.offers=[];n.phase='ready';if(expanded(n)){n.preShop=true;n.phase='shop';n.offers=stock()}save();closeModal();renderNight();if(n.phase==='shop')renderNightShop()}
 function upcomingBossText(n=s.night){if(!modern(n))return'';const table=n.table<3?3:n.table<6?6:6,boss=bossFor(n,table);return boss?`<p class="boss-preview">${table}번 보스 · ${boss.icon} <b>${boss.name}</b><br>${boss.text}<br><small>${boss.hint}</small></p>`:''}
-function stock(){const n=s.night,available=shuffled(DEVICES.filter(d=>!n.devices.includes(d.id)&&!n.bag.includes(d.id)&&(expanded(n)||DEVICES.indexOf(d)<19)).map(d=>d.id)),tags=n.devices.map(id=>device(id)?.tag),gear=available.filter(id=>device(id).kind!=='consumable'),mate=gear.find(id=>tags.includes(device(id).tag));return expanded(n)?[...(mate?[mate,...gear.filter(id=>id!==mate)]:gear).slice(0,4),...available.filter(id=>device(id).kind==='consumable').slice(0,2)]:(mate?[mate,...gear.filter(id=>id!==mate)].slice(0,3):gear.slice(0,3))}
+function stock(){
+ const n=s.night,available=shuffled(DEVICES.filter(d=>!n.devices.includes(d.id)&&!n.bag.includes(d.id)&&(expanded(n)||DEVICES.indexOf(d)<19)).map(d=>d.id)),tags=n.devices.map(id=>device(id)?.tag),gear=available.filter(id=>device(id).kind!=='consumable'),mate=gear.find(id=>tags.includes(device(id).tag));
+ if(!expanded(n))return(mate?[mate,...gear.filter(id=>id!==mate)]:gear).slice(0,3);
+ const selected=[],take=id=>{if(id&&!selected.includes(id)&&selected.length<4)selected.push(id)};
+ take(mate||gear[0]);for(const kind of ['timed','durable'])if(!selected.some(id=>device(id).kind===kind))take(gear.find(id=>device(id).kind===kind));
+ gear.forEach(take);return[...selected,...available.filter(id=>device(id).kind==='consumable').slice(0,2)];
+}
 function merchant(n=s.night){return ['잡화상','수리공','암시장'][((n?.table||1)-1)%3]}
 function devicePrice(id){const d=device(id),discount=expanded()?(merchant()==='수리공'&&d.kind==='durable'?.8:merchant()==='암시장'&&d.kind==='timed'?.8:1):1;return Math.ceil(baseBet()*d.price*(expanded()?room().stake:1)*discount-1e-9)}
 function refreshPrice(){return Math.ceil(baseBet()*.25*(s.night.shopRolls+1)*(expanded()?room().stake:1))}
