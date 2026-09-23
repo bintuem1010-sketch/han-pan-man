@@ -196,7 +196,7 @@ function luxuryAction(id){
  if(id==='console'){
   const n={rules:9,room:'normal',devices:['pairEngine'],growth:{},pairChain:0,table:1,roundHands:0,risk:1,rerolls:0,bosses:{}};
   const correct=handScore(n,['coin','coin','rose']);
-  return modal('연습 · 돈을 걸지 않는 판','<p>작은 승리 장치로 금화 한 쌍. 통과 점수는?<br>기본 배당 0.6 + 장치 0.9 → 한 쌍 점수는 절반.<br>판돈을 올려도 통과 점수는 같아요.</p>',[75,150,300].map(answer=>[answer+'점',()=>finishLuxury(id,answer===correct?0:0,answer===correct?'정답! 추억과 할인권을 얻었습니다.':'75점입니다. 다음 날 다시 연습할 수 있어요.',answer===correct?l:0,answer===correct)]));
+  return modal('연습 · 돈을 걸지 않는 판','<p>작은 승리 장치로 금화 한 쌍. 통과 점수는?<br>기본 배당 0.6 + 장치 0.9 → 한 쌍 점수는 절반.<br>판돈을 올려도 통과 점수는 같아요.</p>',[75,150,300].map(answer=>[answer+'점',()=>finishLuxury(id,0,answer===correct?'정답! 추억과 할인권을 얻었습니다.':'75점입니다. 다음 날 다시 연습할 수 있어요.',answer===correct?l:0,answer===correct)]));
  }
  const settings={radio:[0,1,0,0],camera:[40*l,.65,100*l,0],bike:[20*l,.8,55*l,0],car:[300*l,.6,850*l,150*l],painting:[200*l,.5,600*l,100*l]},[cost,chance,award,loss]=settings[id];
  if(s.money<cost)return notice('활동 비용 부족',fmt(cost)+'이 필요합니다.');
@@ -511,7 +511,7 @@ function stock(){
  gear.forEach(take);return[...selected,...available.filter(id=>device(id).kind==='consumable').slice(0,2)];
 }
 function merchant(n=s.night){return ['잡화상','수리공','암시장'][((n?.table||1)-1)%3]}
-function devicePrice(id){const d=device(id),discount=expanded()?(merchant()==='수리공'&&d.kind==='durable'?.8:merchant()==='암시장'&&d.kind==='timed'?.8:1):1;return Math.ceil(baseBet()*d.price*(expanded()?room().stake:1)*discount*(scored()?1-Math.max(0,luxLevel('watch')-1)*.05:1)*(scored()&&s.shopCoupons>0?.9:1)-1e-9)}
+function devicePrice(id,purchase=true){const d=device(id),discount=expanded()?(merchant()==='수리공'&&d.kind==='durable'?.8:merchant()==='암시장'&&d.kind==='timed'?.8:1):1;return Math.ceil(baseBet()*d.price*(expanded()?room().stake:1)*discount*(scored()?1-Math.max(0,luxLevel('watch')-1)*.05:1)*(purchase&&scored()&&s.shopCoupons>0?.9:1)-1e-9)}
 function refreshPrice(){return Math.ceil(baseBet()*.25*(s.night.shopRolls+1)*(expanded()?room().stake:1)*(1-luxLevel('lamp')*.1))}
 function openNightShop(){const n=s.night;if(n?.phase!=='checkpoint'||n.table>=6||n.tableScore<target())return;if(!modern(n)){n.table++;n.tableScore=0;n.phase='device';n.offers=shuffled(DEVICES.slice(9).map(d=>d.id).filter(id=>!has(id))).slice(0,3);save();renderNight();return chooseDevice()}s.money+=n.pot;n.pot=0;n.risk=1;n.streak=0;n.phase='shop';n.shopRolls=0;n.reserved=null;n.offers=stock();save();header();renderNightShop()}
 function renderNightShop(){
@@ -538,7 +538,7 @@ function expireItems(result){
  if(expired.length)n.breakdown.push(...expired);
 }
 function itemSale(id){const n=s.night,d=device(id);return Math.floor((n.paid[id]||0)*.5*(d.kind==='timed'||d.kind==='durable'?Math.max(.2,(n.itemLife[id]??d.life)/d.life):1))}
-function repairPrice(id){const n=s.night;return Math.ceil(devicePrice(id)*.45*(1+(n.repairs[id]||0))*(owns('workshop')&&!n.repairDiscountUsed? .8:1))}
+function repairPrice(id){const n=s.night;return Math.ceil(devicePrice(id,false)*.45*(1+(n.repairs[id]||0))*(owns('workshop')&&!n.repairDiscountUsed? .8:1))}
 function repairItem(id){const n=s.night,d=device(id);if(!expanded(n)||n.phase!=='shop'||!n.devices.includes(id)||d?.kind!=='durable'||(n.itemLife[id]??d.life)>=d.life)return;const cost=repairPrice(id);if(s.money<cost)return;s.money-=cost;if(owns('workshop'))n.repairDiscountUsed=true;n.itemLife[id]=d.life;n.repairs[id]=(n.repairs[id]||0)+1;save();header();renderNightShop()}
 function itemAction(id){
  const n=s.night;if(!expanded(n)||!n.bag.includes(id)||!['ready','dealt','shop'].includes(n.phase))return;
@@ -615,7 +615,7 @@ function confirmHome(i){if(blockedByEvent())return;if(pledged('home'))return not
 function borrow(amount){if(blockedByEvent())return;if(s.status!=='alive'||s.night||!Number.isFinite(amount)||amount<=0||!Number.isInteger(amount)||credit()<amount)return;modal('대출 계약 확인',`<p>${fmt(amount)}를 빌립니다. 하루 복리 ${mode().interest*100}%.</p><p>상환일: <b>${s.debt?s.due:s.day+5}일째</b>. 만기에는 남은 원금과 이자를 모두 갚아야 합니다. 재대출로 만기는 늘어나지 않습니다.</p>`,[['빌린다',()=>{if(credit()<amount)return;if(!s.debt)s.due=s.day+5;s.debt+=amount;s.money+=amount;log(`${fmt(amount)} 대출 · ${s.due}일 만기`);closeModal();afterAction()},'primary'],['취소',closeModal]])}
 function pay(kind){if(blockedByEvent())return;if(s.status!=='alive'||s.night)return;const field=kind==='bills'?'bills':'debt',amount=Math.min(s.money,s[field],kind==='200'?200:Infinity);s.money-=amount;s[field]-=amount;if(!s.debt){s.due=0;if(field==='debt'&&amount>0)milestone('debt-free','마지막 빚을 갚고 영수증을 접었다.')}log(`${field==='bills'?'미납금':'대출'} ${fmt(amount)} 상환`);afterAction()}
 function rules(){modal('세 장으로 만드는 나만의 승부',`<div class="tutorial-box">같은 그림 2개 = 한 쌍 · 3개 = 트리플<br>장치 3개를 조합해 여섯 테이블 돌파</div><p>① 일반·VIP·심야 중 입장할 방 선택.<br>② 무료 장치 선택 후 준비 상점에서 구입.<br>③ 판돈 배율 선택 → 패 뽑기 → 승부 확정.</p><p>초반 두 테이블은 4회, 이후는 3회 승부. 목표를 일찍 채우면 바로 통과합니다. 새로운 밤은 통과 점수 500 → 750 → 1,100 → 1,600 → 2,300 → 3,200점을 요구합니다. 기본 한 쌍은 30/45/70점, 트리플은 300/500/1,000점이며 장치가 점수를 키웁니다. 판돈·다시 걸기·방의 현금 배당 보너스는 점수를 키우지 않습니다. 꽝 반환은 0점입니다. 지옥에서는 목표가 추가로 20% 높습니다.</p><p>3·6번 보스의 규칙은 미리 표시됩니다. 장미 성장, 해골 트리플, 연속 한 쌍 등 장치 조합을 준비하세요. 총 45종 아이템. 기간제는 승부 확정마다 수명이 감소하며, 내구도 장치는 효과 발동 때만 닳습니다. 고장 난 장치는 수리하거나 팔 수 있습니다. 소모품은 원하는 패에 사용할 수 있습니다. 귀가 시 밤 아이템은 사라집니다.</p><p>당첨금은 원금 포함. 꽝에 다시 건 누적금이 사라집니다. 보스를 포함한 최종 계산은 패 아래에 표시됩니다. 뽑기 확률도 공개되며 몰래 바뀌지 않습니다.</p><p>플레이 후 귀가하면 생활비·집 유지비·사업 결산·대출 이자가 적용됩니다. 75종의 물품과 사업을 사고팔 수 있습니다. 귀가 후 2~3일 간격으로 선택형 사건이 나타납니다. 확률·순손익·지속 효과를 보고 결정하세요. 선불 비용 없는 선택도 있고, 현금을 넘는 손실은 미납금으로 남습니다. 고금리·담보대출은 결산마다 이자가 붙고, 분할 상환액이나 만기 원리금이 부족하면 담보를 잃습니다. 회사는 3단계까지 확장할 수 있고, 빚을 갚은 뒤 은퇴 결말을 선택할 수 있습니다. 인생 목표는 다섯 단계를 따라 진행됩니다. 기능 있는 소장품 10종은 3단계 업그레이드와 나의 방 활동을 제공합니다. 바카라는 밤 입구에서 따로 선택하며 장치 보너스가 적용되지 않습니다. 매 행동 자동 저장, 실제 결제·대출 없음.</p>`,[['알겠어',closeModal,'primary']],'목적 있는 인생 · v9')}
- $('goalBar').onclick=()=>s.night?notice('이번 인생의 목표',LIFE_PATHS[s.lifeGoal]?.steps.join('<br>')||'귀가 후 목표를 정하세요.'):s.lifeEvent?showLifeEvent():chooseGoal();
+ $('goalBar').onclick=()=>s.night?modal('이번 인생의 목표','<p>'+(LIFE_PATHS[s.lifeGoal]?.steps.join('<br>')||'귀가 후 목표를 정하세요.')+'</p>',[['승부로 돌아가기',()=>{closeModal();resumePhase()},'primary']]):s.lifeEvent?showLifeEvent():chooseGoal();
  $('lifeStatus').onclick=()=>s.night?startNight():s.lifeEvent?showLifeEvent():openDay('events');
  $('nightBtn').onclick=startNight;$('dayBtn').onclick=()=>openDay();$('homeBtn').onclick=()=>s.night?leave():(closeModal(),show('homeScreen'));$('backHomeBtn').onclick=()=>show('homeScreen');$('rulesBtn').onclick=rules;$('dealBtn').onclick=()=>deal();$('rerollBtn').onclick=()=>deal(true);$('settleBtn').onclick=evaluate;$('leaveNightBtn').onclick=leave;
  document.querySelectorAll('[data-slot]').forEach(b=>b.onclick=()=>toggleLock(Number(b.dataset.slot)));bind('tab',v=>{currentTab=v;renderDay()});$('soundBtn').onclick=()=>{s.sound=!s.sound;save();beep(650)};
