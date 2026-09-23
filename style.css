@@ -17,3 +17,35 @@
 /* City economy, portfolio and the lived-in room. */
 /* Stock cards sit on paper: retain strong text and chart contrast. */
 .cash-forecast{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:#231f19;color:#c8bca5;border-bottom:1px solid #4c4333;font-size:12px}.cash-forecast b{color:#e3c080}.cash-forecast button{padding:8px 12px}.build-summary{display:flex;flex-wrap:wrap;gap:8px 20px;padding:12px 16px;background:#263328;border:1px solid #465d43;border-radius:8px;color:#ded9b5;margin:12px 0}.build-summary small{flex:1;min-width:240px}.market-overview{grid-column:1/-1;border:1px solid #776344;padding:26px;border-radius:14px;background:linear-gradient(115deg,#243831,#27251c)}.market-overview h2{font-size:28px;color:#e6cd91;margin:10px 0}.market-overview p{line-height:1.7;font-size:14px;color:#c2b8a3}.market-totals{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:22px 0}.market-totals span{font-size:12px;color:#b7ac97}.market-totals b{display:block;font-size:23px;color:#eee1bc;margin-top:7px}.stock-heading{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#514530}.stock-heading .positive{color:#245d40}.stock-heading .negative{color:#922d28}.stock-price{font-family:Georgia,serif;font-size:32px;color:#38280f}.stock-chart{width:100%;height:auto;display:block;color:#286046;margin:12px 0}.stock-chart circle{fill:currentColor}.stock-card p{min-height:80px}.stock-card button{min-width:85px}.stock-order{display:grid;gap:10px}.stock-order button{text-align:left;padding:14px}.room-scene{grid-column:1/-1;position:relative;overflow:hidden;min-height:290px;border:5px solid #66533b;border-radius:14px;background:linear-gradient(#394331 0%,#394331 70%,#51412c 70%,#6b5338 100%);padding:25px 30px 35px}.room-window{position:absolute;right:30px;top:22px;width:100px;height:85px;display:grid;place-items:center;border:8px solid #987c4c;background:#afc8b4;color:#e8d598;font-size:36px;box-shadow:inset 0 0 18px #fff6}.room-caption{max-width:75%;color:#edddba}.room-caption h2{margin:9px 0;font-size:26px}.room-caption p{font-size:12px}.room-caption small{letter-spacing:3px;font-size:10px;color:#c1b18e}.room-objects{position:relative;z-index:1;display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin-top:36px}.room-objects button{width:90px;min-height:95px;background:#282a2199;border:1px solid #96815b;border-radius:7px;color:#e6d3ac;padding:8px;box-shadow:4px 5px 0 #181a1466}.room-objects i{font-size:37px;display:block;font-style:normal;margin-bottom:7px}.room-objects span{font-size:10px;display:block}.room-scene.home-0 .room-window{width:65px;height:60px}.room-scene.home-4,.room-scene.home-5{background:linear-gradient(#353449 0%,#353449 70%,#504559 70%,#6e585b 100%)}.run-review{padding:14px;background:#252e25;border:1px solid #526149;border-radius:8px}.run-review small{font-size:12px;color:#b0b99e}#backupText{width:100%;resize:vertical;background:#1e211b;color:#ddd5bd;border:1px solid #81734e;padding:12px;border-radius:7px;font:12px monospace}#backupError{color:#e6a09b}.modal-card table{border-collapse:collapse;width:100%;margin:15px 0}.modal-card td,.modal-card th{padding:10px;border-bottom:1px solid #62563e;text-align:left}.reveal-cards .playing-card{animation:card-reveal .5s both}.reveal-cards .playing-card:nth-child(2){animation-delay:.2s}.reveal-cards .playing-card:nth-child(3){animation-delay:.4s}.reveal-result{animation:card-reveal .4s .65s both}.baccarat-explanation{text-align:center;font-size:12px;color:#b9b196;line-height:1.7}@keyframes card-reveal{from{opacity:0;transform:translateY(8px) rotateY(50deg)}to{opacity:1;transform:none}}@media(prefers-reduced-motion:reduce){.reveal-cards .playing-card,.reveal-result{animation:none}}@media(max-width:600px){.market-totals{grid-template-columns:repeat(2,1fr)}.market-overview{padding:18px}.market-overview h2{font-size:23px}.market-totals b{font-size:21px}.cash-forecast{font-size:11px}.room-scene{padding:18px 15px}.room-window{right:14px;width:65px;height:65px}.room-caption{max-width:70%}.room-objects{gap:8px}.room-objects button{width:73px}.machine-controls{position:sticky;bottom:8px;z-index:6;background:#201c16ee;padding:10px;border:1px solid #66573c;border-radius:10px}.modal-actions{position:sticky;bottom:0;background:#231d15;padding-top:12px}.baccarat-actions{position:sticky;bottom:8px;z-index:6;background:#211e17ee;padding:9px;border-radius:9px}.hero-actions{flex-wrap:wrap}}
+
+/* v10.1: readable, touch-friendly choices on phones. */
+.modal-actions{background:var(--cream);color:var(--ink)}
+.modal-actions button{background:#f7edce;color:#241b11;white-space:normal;overflow-wrap:anywhere;line-height:1.5;touch-action:manipulation}
+.modal-actions button.primary{background:#a63828;color:#fff4dc}
+.modal-actions button:focus-visible{outline:3px solid #173b30;outline-offset:3px}
+.modal-card{overscroll-behavior:contain;overflow-wrap:anywhere}
+.modal-card .run-review{color:#efe5c8}
+body:has(.modal:not(.hidden)){overflow:hidden}
+@media(max-width:650px){
+ .modal{padding:12px;padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom))}
+ .modal .modal-card{width:100%;min-width:0;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));padding:20px 16px;border-width:5px}
+ .modal-card h2{font-size:26px;line-height:1.3;letter-spacing:-.04em}
+ .modal-card p,.modal-card .shop-card p{font-size:15px;line-height:1.75}
+ .modal-actions{position:static;grid-template-columns:minmax(0,1fr);gap:10px;padding:14px 0 0;margin-top:18px;border-top:1px solid #b49a60}
+ .modal-actions:empty{display:none}
+ .modal-actions button{width:100%;min-height:52px;padding:14px 12px;font-size:16px}
+ .modal-card button{max-width:100%;white-space:normal;overflow-wrap:anywhere;touch-action:manipulation}
+ .choice-grid,.lobby-grid{grid-template-columns:minmax(0,1fr)}
+ .choice{min-height:56px;text-align:left;font-size:16px;color:#241b11}
+ .choice small{font-size:14px;line-height:1.6}
+ .event-choice-title{font-size:16px}
+ .event-cost,.event-outcome,.event-wallet small{font-size:14px;line-height:1.7}
+ .night-shop-grid .shop-card{display:flex;gap:4px;min-width:0;padding:14px}
+ .night-shop-grid .shop-card button{width:100%;max-width:none;min-height:48px;margin-top:6px;font-size:15px}
+ .night-shop-grid .shop-card h3{font-size:17px}
+ .night-shop-grid small{font-size:13px}
+ .stock-order button{min-height:52px;font-size:16px;background:#f7edce;color:#241b11;border:2px solid #6f501b}
+ .wallet{padding:7px 12px;border:2px solid #806136;background:#fff1bf;border-radius:6px}
+ .wallet span{font-size:12px;letter-spacing:0}
+ .wallet strong{font-size:22px;font-variant-numeric:tabular-nums}
+}
