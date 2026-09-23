@@ -2,13 +2,13 @@ const {readFileSync}=require('node:fs');
 const vm=require('node:vm');
 const assert=require('node:assert/strict');
 const source=readFileSync(__dirname+'/game.js','utf8');
-function boot(saved,withEvents=false){
+function boot(saved,withEvents=false,rulesVersion=9){
  const elements=new Map(),storage=new Map(saved?[['hanpan-life-v5',JSON.stringify(saved)]]:[]);
  function el(){return{children:[],dataset:{},classList:{toggle(){},add(){},remove(){}},replaceChildren(){this.children=[]},appendChild(x){this.children.push(x)},querySelector(){return el()},textContent:'',innerHTML:''}}
  const document={getElementById(id){if(!elements.has(id))elements.set(id,el());return elements.get(id)},querySelectorAll(){return[]},createElement:el};
  const math=Object.create(Math);math.random=()=>.1;
  const context=vm.createContext({document,localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},navigator:{},window:{},Math:math,mathRandom:v=>math.random=()=>v});
- vm.runInContext(source.replace(/\}\)\(\);\s*$/,`globalThis.test={state:()=>s,set:x=>s=x,fresh,handScore,scored,chooseGoal,updateGoal,luxLevel,upgradeLuxury,luxuryAction,finishLuxury,reserveOffer,rerollCost,refreshPrice,resale,LUXURY,beginBaccarat,baccaratBet,dealBaccarat,nextBaccarat,baccaratHand,baccaratShoe,baccaratTotal,bankerDraw,baccaratPayout,rawStart:beginNight,lobby:startNight,startNight:()=>{beginNight();if(s.night?.phase==='starter'){selectDevice('roseLuck');s.night.devices=[];if(s.night.preShop)nextTable()}},selectDevice,beginNight,changeStake,room,tableBase,active,expireItems,useItem,itemSale,repairPrice,repairItem,rerollLimit,takeLoan,payLoan,settleLoans,foreclose,liquidateLoan,loanOffers,totalDebt,pledged,lockedAssets,businessLevel,businessStats,businessCapital,upgradeBusiness,retire,retirementOptions,deal,evaluate,resolveChoice,advanceHand,endNight,borrow,pay,buy,sell,confirmHome,checkBankruptcy,reset,baseBet,bet,assets,credit,wealth,GOODS,HOMES,save,handValue,handLimit,handIndex,target,symbolWeights,bossFor,toggleLock,buyDevice,sellDevice,refreshStock,nextTable,openNightShop,devicePrice,renderNightShop,checkLifeGoals,DEVICES,BOSSES,eventCatalog,queueLifeEvent,resolveLifeEvent,finishLifeEvent,showLifeEvent,upkeep,businessMultiplier,expireEffects,openDay,random:v=>mathRandom(v)};})();`),context);
+ vm.runInContext(source.replace(/\}\)\(\);\s*$/,`const versionedBegin=(...args)=>{const existed=!!s.night;beginNight(...args);if(!existed&&s.night)s.night.rules=${rulesVersion}};globalThis.test={state:()=>s,set:x=>s=x,fresh,STOCKS,MARKET_NEWS,tickMarket,stockValue,stockQuote,executeStock,newMarket,worldBusinessMultiplier,specializeBusiness,businessStyle,quietDay,forecastCosts,startProject,advanceProject,completeReward,chooseRoute,selectRoute,mayRisk,bookLoanInterest,restoreCheckpoint,backupCode,validBackup,checksum,finishSettlement,mortgageRisk,handScore,scored,chooseGoal,updateGoal,luxLevel,upgradeLuxury,luxuryAction,finishLuxury,reserveOffer,rerollCost,refreshPrice,resale,LUXURY,beginBaccarat,baccaratBet,dealBaccarat,nextBaccarat,baccaratHand,baccaratShoe,baccaratTotal,bankerDraw,baccaratPayout,rawStart:versionedBegin,lobby:startNight,startNight:()=>{versionedBegin();if(s.night?.phase==='starter'){selectDevice('roseLuck');s.night.devices=[];if(s.night.preShop)nextTable()}},selectDevice,beginNight:versionedBegin,changeStake,room,tableBase,active,expireItems,useItem,itemSale,repairPrice,repairItem,rerollLimit,takeLoan,payLoan,settleLoans,foreclose,liquidateLoan,loanOffers,totalDebt,pledged,lockedAssets,businessLevel,businessStats,businessCapital,upgradeBusiness,retire,retirementOptions,deal,evaluate,resolveChoice,advanceHand,endNight,borrow,pay,buy,sell,confirmHome,checkBankruptcy,reset,baseBet,bet,assets,credit,wealth,GOODS,HOMES,save,handValue,handLimit,handIndex,target,symbolWeights,bossFor,toggleLock,buyDevice,sellDevice,refreshStock,nextTable,openNightShop,devicePrice,renderNightShop,checkLifeGoals,DEVICES,BOSSES,eventCatalog,queueLifeEvent,resolveLifeEvent,finishLifeEvent,showLifeEvent,upkeep,businessMultiplier,expireEffects,openDay,random:v=>mathRandom(v)};})();`),context);
  if(!withEvents)context.test.state().nextEventDay=999999;
  return{...context.test,storage,click(label){const b=elements.get('modalActions').children.find(b=>b.textContent===label);assert.ok(b,'missing button '+label);b.onclick()},elements};
 }
@@ -26,7 +26,7 @@ test('bankruptcy and new life preserve historical record',()=>{const t=boot();Ob
 test('unpaid living expenses carried as bills and prohibit shopping',()=>{const t=boot();t.state().money=100;t.startNight();t.deal();t.endNight();assert.equal(t.state().bills,85);const before=t.state().owned.length;t.buy('radio');assert.equal(t.state().owned.length,before)});
 test('abandoning unresolved risk cannot keep previous winnings',()=>{const t=boot();t.startNight();t.deal();t.state().night.cards=['coin','coin','rose'];t.evaluate();t.resolveChoice(true);assert.equal(t.state().night.pot,60);t.deal();t.endNight();assert.equal(t.state().money,915)});
 test('last credit remainder is borrowable',()=>{const t=boot();Object.assign(t.state(),{money:0,debt:700,due:6});assert.equal(t.credit(),100);assert.equal(t.checkBankruptcy(),false);t.borrow(100);t.click('빌린다');assert.equal(t.state().money,100);assert.equal(t.state().debt,800)});
-test('stale HTML recovers before reading or mutating saved money',()=>{let redirected='';vm.runInNewContext(source,{document:{getElementById:()=>null},URL,location:{href:'https://example.com/han-pan-man/',replace:url=>redirected=url},localStorage:{getItem(){throw Error('save must remain untouched')}}});assert.equal(redirected,'https://example.com/han-pan-man/index.html?v=9')});
+test('stale HTML recovers before reading or mutating saved money',()=>{let redirected='';vm.runInNewContext(source,{document:{getElementById:()=>null},URL,location:{href:'https://example.com/han-pan-man/',replace:url=>redirected=url},localStorage:{getItem(){throw Error('save must remain untouched')}}});assert.equal(redirected,'https://example.com/han-pan-man/index.html?v=10')});
 test('insufficient stake has actionable message and does not charge',()=>{const t=boot();t.startNight();t.state().money=50;t.deal();assert.equal(t.state().money,50);assert.equal(t.state().night.phase,'ready');assert.equal(t.elements.get('modalTitle').textContent,'판돈이 부족해요');t.click('귀가하기');assert.equal(t.elements.get('modalTitle').textContent,'오늘 밤을 마칠까요?')});
 test('first device selection is saved and cannot be repeated or cashed out',()=>{const t=boot();t.rawStart();assert.equal(t.state().night.phase,'starter');t.selectDevice('pairEngine');t.selectDevice('skullLuck');assert.equal(t.state().night.devices.length,1);assert.equal(t.state().night.paid.pairEngine,0);t.endNight();assert.equal(t.state().money,1200);assert.equal(t.state().day,1)});
 test('targets rise relative to payouts and late tables have fewer hands',()=>{const t=boot();t.startNight();const ratios=[];for(let table=1;table<=6;table++){t.state().night.table=table;ratios.push(t.target())}assert.ok(ratios[5]>ratios[0]*5);assert.equal(t.handLimit(),3);t.state().night.table=1;assert.equal(t.handLimit(),4)});
@@ -48,7 +48,7 @@ test('catalog has 75 unique goods and 18 context-aware events',()=>{
  for(const e of catalog){assert.equal(e.choices.length,3);assert.ok(e.choices.some(c=>c.cost===0));for(const c of e.choices){assert.equal(c.outcomes.reduce((v,o)=>v+o.chance,0),100);assert.ok(c.cost>=0);for(const o of c.outcomes)assert.ok(Number.isInteger(o.cash))}}
 });
 test('every event outcome applies exactly the shown net cash and asset effects',()=>{
- const seed=boot();seed.state().money=1000000;seed.state().home=3;seed.state().owned=seed.GOODS.filter(g=>g.sellable).map(g=>g.id);
+ const seed=boot();seed.state().money=1000000;seed.state().home=3;seed.state().owned=seed.GOODS.filter(g=>g.sellable).map(g=>g.id);seed.checkLifeGoals();seed.state().memories=0;
  for(const e of seed.eventCatalog())for(let index=0;index<e.choices.length;index++){
   const c=e.choices[index];let low=0;
   for(const outcome of c.outcomes){
@@ -239,7 +239,7 @@ test('all life paths have reachable intermediate stages and reset clears purpose
  for(const path of ['home','patron']){const t=boot(),s=t.state();s.lifeGoal=path;s.owned=['radio','stall'];s.luxuryLevels.radio=3;s.money=30000;s.home=3;s.good=20;t.save();assert.equal(s.goalStage,4);t.reset('hard');assert.equal(t.state().lifeGoal,null);assert.equal(t.state().goalStage,0);assert.equal(t.state().shopCoupons,0)}
 });
 test('ten functional possessions upgrade with real costs and lose levels after resale',()=>{
- const t=boot(),s=t.state();assert.equal(Object.keys(t.LUXURY).length,10);s.money=10000;t.buy('radio');t.upgradeLuxury('radio');t.click('업그레이드');t.upgradeLuxury('radio');t.click('업그레이드');
+ const t=boot(),s=t.state();assert.equal(Object.keys(t.LUXURY).length,38);s.money=10000;t.buy('radio');t.upgradeLuxury('radio');t.click('업그레이드');t.upgradeLuxury('radio');t.click('업그레이드');
  assert.equal(t.luxLevel('radio'),3);assert.equal(s.money,9550);assert.equal(t.resale(t.GOODS.find(g=>g.id==='radio')),270);assert.equal(t.upkeep(),70);
  t.sell('radio');t.click('판매한다');t.buy('radio');assert.equal(t.luxLevel('radio'),1);
 });
@@ -292,6 +292,101 @@ test('baccarat shares loans and settlement, empty entry costs nothing and no dou
 test('baccarat insufficient funds, overdue debt and 12 hand limit are enforced',()=>{
  const t=boot(),s=t.state();s.bills=1;t.beginBaccarat();assert.equal(s.night,null);s.bills=0;t.beginBaccarat();t.baccaratBet('tie',20);t.dealBaccarat();assert.equal(s.money,1200);assert.equal(s.night.hands,0);
  s.money=100000;t.baccaratBet('player',1);for(let i=0;i<12;i++){t.dealBaccarat();assert.equal(s.night.hands,i+1);if(i<11)t.nextBaccarat()}const after=s.money;t.dealBaccarat();assert.equal(s.money,after);t.nextBaccarat();assert.equal(s.night,null);assert.equal(s.day,2);
+});
+
+test('v10 base cash returns are below stakes in every room; points stay independent',()=>{
+ const t=boot(undefined,false,10);t.startNight();const n=t.state().night,weights={coin:.48,rose:.34,skull:.18},evs=[];
+ for(const room of ['normal','vip','secret']){n.room=room;let ev=0;for(const a of Object.keys(weights))for(const b of Object.keys(weights))for(const c of Object.keys(weights))ev+=weights[a]*weights[b]*weights[c]*t.handValue(n,[a,b,c],10000).win/10000;assert.ok(ev>.8&&ev<1);evs.push(ev)}
+ n.risk=4;n.stakeMult=20;assert.equal(t.handScore(n,['coin','coin','rose']),30);assert.equal(t.handScore(n,['skull','skull','skull']),1000);
+ console.log('BASE CASH EV',evs.map(x=>x.toFixed(6)).join(' / '));
+});
+test('v10 same-day preparation shop and bosses survive reentry and reload',()=>{
+ const t=boot(undefined,false,10);t.beginNight();t.selectDevice('pairEngine');const n=t.state().night,offers=JSON.stringify(n.offers),bosses=JSON.stringify(n.bosses);
+ t.endNight();t.random(.99);t.beginNight();t.selectDevice('pairEngine');assert.equal(JSON.stringify(t.state().night.offers),offers);assert.equal(JSON.stringify(t.state().night.bosses),bosses);
+ const r=boot(JSON.parse(t.storage.get('hanpan-life-v5')),false,10);assert.equal(JSON.stringify(r.state().night.offers),offers);
+});
+test('v10 last hand and cleared target cannot use risk; risk pot locks stake',()=>{
+ const t=boot(undefined,false,10);t.startNight();const n=t.state().night;n.roundHands=t.handLimit()-1;assert.equal(t.mayRisk(),false);n.roundHands=0;n.tableScore=t.target();assert.equal(t.mayRisk(),false);
+ n.tableScore=0;n.pot=50;t.changeStake(2);assert.equal(n.stakeMult,1);n.pot=0;t.changeStake(2);assert.equal(n.stakeMult,2);
+});
+test('v10 route selection advances once with disclosed target and payout costs',()=>{
+ const t=boot(undefined,false,10);t.startNight();const n=t.state().night;n.phase='shop';t.nextTable();assert.equal(n.phase,'route');assert.equal(n.table,1);
+ t.selectRoute('steady');assert.equal(n.table,2);assert.equal(t.target(),675);assert.equal(t.handValue(n,['coin','coin','coin'],100).win,202);
+ t.selectRoute('rush');assert.equal(n.table,2);n.phase='route';t.selectRoute('rush');assert.equal(n.table,3);assert.equal(t.target(),1375);
+});
+test('v10 new bosses apply only their first-hand restrictions',()=>{
+ const t=boot(undefined,false,10);t.startNight();const n=t.state().night;n.table=3;n.bosses={3:'hush'};assert.equal(t.rerollLimit(),0);n.roundHands=1;assert.equal(t.rerollLimit(),1);
+ n.roundHands=0;n.bosses[3]='cold';assert.equal(t.handScore(n,['coin','coin','coin']),150);n.roundHands=1;assert.equal(t.handScore(n,['coin','coin','coin']),300);
+});
+test('v10 completion reward pays once and discoveries survive a new life',()=>{
+ const t=boot(undefined,false,10);t.startNight();const s=t.state(),n=s.night;n.table=6;const money=s.money;
+ assert.equal(t.completeReward(n),1000);assert.equal(s.money,money+1000);assert.equal(t.completeReward(n),0);assert.equal(s.archive.clears,1);t.save();t.reset('hard');assert.equal(t.state().archive.clears,1);assert.equal(t.state().money,1200);
+});
+test('stock buy/sell fees, average cost and partial realized profit reconcile',()=>{
+ const t=boot(undefined,false,10),s=t.state();s.money=10000;assert.equal(t.executeStock('harvest','buy',10),true);assert.equal(s.money,8990);assert.equal(s.market.holdings.harvest.cost,1010);
+ s.market.prices.harvest=120;t.executeStock('harvest','buy',5);assert.equal(s.money,8384);assert.equal(s.market.holdings.harvest.cost,1616);
+ t.executeStock('harvest','sell',5);assert.equal(s.money,8978);assert.equal(s.market.realized,55);assert.equal(s.market.holdings.harvest.cost,1077);
+ t.executeStock('harvest','sell',10);assert.equal(s.money,10166);assert.equal(s.market.realized,166);assert.equal(s.market.holdings.harvest,undefined);assert.equal(s.market.tradeCount,4);
+});
+test('stock invalid orders, insufficient funds and oversells never mutate balances',()=>{
+ const t=boot(undefined,false,10),s=t.state(),before=JSON.stringify(s);
+ for(const [id,side,qty]of [['bad','buy',1],['pixel','bad',1],['pixel','buy',NaN],['pixel','buy',-1],['pixel','buy',.5],['pixel','buy',10001],['sol','buy',100],['pixel','sell',1]])assert.equal(t.executeStock(id,side,qty),false);
+ assert.equal(JSON.stringify(s),before);
+});
+test('stocks count as saleable assets but do not inflate borrowing limits',()=>{
+ const t=boot(undefined,false,10),s=t.state();s.money=10000;const credit=t.credit();t.executeStock('harvest','buy',10);
+ assert.equal(t.stockValue(),990);assert.equal(t.assets(),990);assert.equal(t.credit(),credit);assert.equal(t.wealth(),9980);
+ s.bills=1;assert.equal(t.executeStock('harvest','buy',1),false);assert.equal(t.executeStock('harvest','sell',10),true);assert.equal(t.stockValue(),0);
+});
+test('market evolves once per day and save reload cannot redraw prices',()=>{
+ const t=boot(undefined,false,10),s=t.state(),saved=JSON.parse(JSON.stringify(s));s.day++;t.tickMarket();const next=JSON.stringify(s.market),money=s.money;t.tickMarket();assert.equal(JSON.stringify(s.market),next);assert.equal(s.money,money);
+ const r=boot(saved,false,10);r.random(.99);r.state().day++;r.tickMarket();assert.equal(JSON.stringify(r.state().market),next);
+});
+test('dividend is ex-price, once only; prices and history remain bounded over 200 days',()=>{
+ const t=boot(undefined,false,10),s=t.state();s.market.holdings.harvest={qty:10,cost:1010};s.day=3;const before=s.money;t.tickMarket();assert.equal(s.money,before+10);assert.equal(s.market.dividends,10);t.tickMarket();assert.equal(s.money,before+10);
+ for(let day=4;day<=203;day++){s.day=day;t.tickMarket();for(const x of t.STOCKS){assert.ok(s.market.prices[x.id]>=1&&s.market.prices[x.id]<=1e7);assert.ok(s.market.history[x.id].length<=24)}}
+});
+test('news influences relevant businesses and rotates only after its announced duration',()=>{
+ const t=boot(undefined,false,10),s=t.state();s.market.news=1;s.market.newsUntil=4;assert.equal(t.worldBusinessMultiplier('hotel'),1.24);assert.equal(t.worldBusinessMultiplier('gamecompany'),1);
+ s.day=2;t.tickMarket();assert.equal(s.market.news,1);s.day=3;t.tickMarket();assert.equal(s.market.news,1);s.day=4;t.tickMarket();assert.equal(s.market.newsUntil,7);
+});
+test('quiet work pays once and advances costs, prices and saved checkpoint together',()=>{
+ const t=boot(undefined,false,10),s=t.state();t.save();t.quietDay('work');t.click('하루를 보낸다');assert.equal(s.day,2);assert.equal(s.money,1175);assert.equal(s.market.day,2);assert.equal(s.night,null);
+ const checkpoint=JSON.parse(t.storage.get('hanpan-life-v5-checkpoint'));assert.equal(checkpoint.day,1);assert.equal(checkpoint.night,null);assert.equal(checkpoint.money,1200);
+ t.finishSettlement();assert.equal(s.money,1175);assert.equal(s.day,2);
+});
+test('secured settlement allows stock rescue without advancing date or charging twice',()=>{
+ const t=boot(undefined,false,10),s=t.state();s.money=100;s.home=1;s.market.holdings.harvest={qty:20,cost:2020};
+ s.loans=[{id:1,name:'test',balance:500,principal:500,rate:.06,due:2,installment:0,plan:'bullet',target:'home'}];
+ t.quietDay('work');t.click('하루를 보낸다');assert.ok(s.pendingSettlement);assert.equal(s.day,2);assert.equal(s.loans[0].balance,530);
+ t.quietDay('work');assert.equal(s.day,2);assert.equal(t.executeStock('harvest','buy',1),false);assert.equal(t.executeStock('harvest','sell',20),true);
+ const before=s.money;t.finishSettlement();assert.equal(s.money,before-530);assert.equal(s.home,1);assert.equal(s.pendingSettlement,null);const money=s.money;t.finishSettlement();assert.equal(s.money,money);assert.equal(s.day,2);
+});
+test('rescue interest is booked before manual repayment and installments are idempotent',()=>{
+ const t=boot(undefined,false,10),s=t.state();s.money=10000;s.loans=[{id:1,name:'test',balance:1000,principal:1000,rate:.1,due:8,installment:100,plan:'installment',target:null}];s.day=2;
+ t.bookLoanInterest();assert.equal(s.loans[0].balance,1100);t.bookLoanInterest();assert.equal(s.loans[0].balance,1100);t.settleLoans();assert.equal(s.money,9800);assert.equal(s.loans[0].balance,900);t.settleLoans();assert.equal(s.money,9800);
+ t.payLoan(1);assert.equal(s.money,8900);assert.equal(s.loans.length,0);
+});
+test('home and investor projects reset on broken conditions; business completion pays once',()=>{
+ const t=boot(undefined,false,10),s=t.state();s.lifeGoal='home';s.goalStage=4;s.home=3;s.project={kind:'home',progress:0,started:1};t.advanceProject();assert.equal(s.project.progress,1);s.debt=1;t.advanceProject();assert.equal(s.project.progress,0);
+ s.debt=0;s.project={kind:'investor',progress:1,started:1};t.advanceProject();assert.equal(s.project.progress,0);
+ s.lifeGoal='business';s.owned=['stall'];s.businessLevels.stall=3;s.project={kind:'business',progress:0,started:1};const before=s.money;for(let i=0;i<3;i++)t.advanceProject();assert.equal(s.goalFinalClear,true);assert.equal(s.money,before+8000);t.advanceProject();assert.equal(s.money,before+8000);
+});
+test('v10 backups round-trip populated portfolios and reject malformed money and markets',()=>{
+ const t=boot(undefined,false,10);t.executeStock('harvest','buy',5);const code=t.backupCode(),next=t.validBackup(code);assert.equal(next.market.holdings.harvest.qty,5);
+ const mutate=fn=>{const x=JSON.parse(code);fn(x.state);x.checksum=t.checksum(JSON.stringify(x.state));return JSON.stringify(x)};
+ assert.throws(()=>t.validBackup(code.replace('"checksum":"','"checksum":"x')));
+ for(const edit of [x=>x.money=-1,x=>x.market.holdings.fake={qty:1,cost:1},x=>x.market.prices.harvest=0,x=>x.market.day++,x=>x.businessStyles.stall='fake',x=>x.dailyRooms={day:1,rooms:{normal:{bosses:{3:'fake',6:'cold'}}}}])assert.throws(()=>t.validBackup(mutate(edit)));
+ const safe=t.validBackup(mutate(x=>x.log=['<img src=x onerror=alert(1)>']));assert.ok(!safe.log[0].includes('<img'));
+});
+test('settlement checkpoint stores a pot before payment, so restored payment is not doubled',()=>{
+ const t=boot(undefined,false,10);t.startNight();const s=t.state();s.night.pot=200;s.night.played=true;const before=s.money;t.endNight();const checkpoint=JSON.parse(t.storage.get('hanpan-life-v5-checkpoint'));
+ assert.equal(checkpoint.money,before);assert.equal(checkpoint.night.pot,200);const r=boot(checkpoint,false,10);r.endNight();assert.equal(r.state().money,s.money);assert.equal(r.state().day,s.day);
+});
+test('all 38 luxury objects have upgrade effects; sequels depend on history',()=>{
+ const t=boot(undefined,false,10),s=t.state();assert.equal(Object.keys(t.LUXURY).length,38);for(const g of t.GOODS.filter(x=>x.tab==='luxury'))assert.ok(t.LUXURY[g.id].text(1));
+ s.owned=['stall'];s.story.contract=1;assert.ok(t.eventCatalog().some(e=>e.id==='contract-part2'));s.story.contract=2;assert.ok(t.eventCatalog().some(e=>e.id==='contract-part3'));
+ s.baccaratVisits=2;s.market.tradeCount=1;assert.ok(t.eventCatalog().some(e=>e.id==='salon-letter'));assert.ok(t.eventCatalog().some(e=>e.id==='investor-letter'));
 });
 
 console.log(`${tests} economic and state regression tests passed`);
